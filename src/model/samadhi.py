@@ -47,21 +47,38 @@ class SamadhiCore(nn.Module):
 
         self._normalize_probes()
 
-        self.adapter = nn.Sequential(nn.Linear(self.dim, self.dim), nn.LayerNorm(self.dim), nn.Tanh())  # -1~1に整える
+        # --- A. Vitakka Module (Search & Probing) ---
+        self.adapter = self._build_adapter()
 
         # --- B. Vicāra Module (Recurrent Refinement) ---
-        # 純化関数 (Refinement Function)
-        # 情報を圧縮・展開することで、本質的特徴量のみを残す
-        self.refiner = nn.Sequential(
+        self.refiner = self._build_refiner()
+
+        # 履歴ログ (Citta-santāna / Stream of Consciousness)
+        self.history_log: List[Dict] = []
+
+    def _build_adapter(self) -> nn.Module:
+        """
+        Manasikāra (Attention/Adaptation) Module を構築します。
+        入力を正規化し、検索に適した形に変形します。
+        """
+        return nn.Sequential(
+            nn.Linear(self.dim, self.dim),
+            nn.LayerNorm(self.dim),
+            nn.Tanh(),  # -1~1に整える
+        )
+
+    def _build_refiner(self) -> nn.Module:
+        """
+        Vicāra (Refinement) Module を構築します。
+        再帰的な純化プロセスで使用されるオートエンコーダ構造です。
+        """
+        return nn.Sequential(
             nn.Linear(self.dim, self.dim // 2),
             nn.LayerNorm(self.dim // 2),
             nn.ReLU(),
             nn.Linear(self.dim // 2, self.dim),
             nn.Tanh(),  # 状態を -1 ~ 1 の範囲に安定させる
         )
-
-        # 履歴ログ (Citta-santāna / Stream of Consciousness)
-        self.history_log: List[Dict] = []
 
     def _normalize_probes(self):
         """プローブベクトルをL2正規化します（内部利用）。"""
@@ -181,7 +198,7 @@ class SamadhiCore(nn.Module):
         # --- メタデータ構築 (共通) ---
         winner_idx = meta_partial["winner_id"]
         winner_indices_cpu = winner_idx.detach().cpu().numpy()
-        labels = self.config["labels"]
+        labels = self.config.get("labels", [str(i) for i in range(self.config["n_probes"])])
         winner_labels = [labels[i] for i in winner_indices_cpu]
 
         metadata = {
