@@ -41,7 +41,13 @@ class SamadhiCore(nn.Module):
         # 概念プローブの定義
         # 初期状態はランダムだが、正規化してコサイン類似度計算に適した形にする
         self.probes = nn.Parameter(torch.randn(config["n_probes"], self.dim))
+
+        # プローブを学習対象にするかどうか (Default: True)
+        self.probes.requires_grad = config.get("probe_trainable", True)
+
         self._normalize_probes()
+
+        self.adapter = nn.Sequential(nn.Linear(self.dim, self.dim), nn.LayerNorm(self.dim), nn.Tanh())  # -1~1に整える
 
         # --- B. Vicāra Module (Recurrent Refinement) ---
         # 純化関数 (Refinement Function)
@@ -62,6 +68,77 @@ class SamadhiCore(nn.Module):
         with torch.no_grad():
             self.probes.div_(torch.norm(self.probes, dim=1, keepdim=True))
 
+    def load_probes(self, pretrained_probes: torch.Tensor):
+        """
+        外部からプローブの初期値をロードします（例: 平均画像など）。
+
+        Args:
+            pretrained_probes (torch.Tensor): [n_probes, dim] のテンソル。
+        """
+        if pretrained_probes.shape != self.probes.shape:
+            raise ValueError(f"Shape mismatch: expected {self.probes.shape}, got {pretrained_probes.shape}")
+
+        with torch.no_grad():
+            self.probes.copy_(pretrained_probes)
+            self._normalize_probes()
+
+    def _compute_soft_s0(
+        self, x_adapted: torch.Tensor, probs: torch.Tensor, raw_scores: torch.Tensor
+    ) -> Tuple[torch.Tensor, Dict[str, Any]]:
+        """[Soft Mode] 確率分布に従ってプローブを混合し、微分可能なゲートを適用します。"""
+        # probs: [Batch, N] @ probes: [N, Dim] -> [Batch, Dim]
+        weighted_probes = torch.matmul(probs, self.probes)
+
+        # S0 = 入力と意図(プローブ)のハイブリッド
+        # x_adapted: [Batch, Dim]
+        # weighted_probes: [Batch, Dim]
+        alpha = self.config.get("mix_alpha", 0.5)
+        s0_candidate = alpha * x_adapted + (1 - alpha) * weighted_probes
+
+        # Soft Gate: 確率分布で重み付けした平均スコアを使用
+        avg_score = torch.sum(raw_scores * probs, dim=1)
+        gate_logits = (avg_score - self.config["gate_threshold"]) * 10.0
+        gate_mask = torch.sigmoid(gate_logits).unsqueeze(1)
+
+        s0 = s0_candidate * gate_mask
+
+        # ログ用
+        winner_idx = torch.argmax(probs, dim=1)
+        max_raw_score = torch.max(raw_scores, dim=1)[0]
+        confidence = torch.max(probs, dim=1)[0]
+
+        return s0, {
+            "winner_id": winner_idx,
+            "raw_score": max_raw_score,
+            "gate_open": max_raw_score > self.config["gate_threshold"],  # ログ用の判定はMax準拠で維持
+            "confidence": confidence,
+            "raw_scores_tensor": raw_scores,
+        }
+
+    def _compute_hard_s0(
+        self, x_adapted: torch.Tensor, probs: torch.Tensor, raw_scores: torch.Tensor
+    ) -> Tuple[torch.Tensor, Dict[str, Any]]:
+        """[Hard Mode] 勝者プローブを1つだけ選択し、明確なゲート判定を行います。"""
+        max_raw_score, winner_idx = torch.max(raw_scores, dim=1)
+        is_gate_open = max_raw_score > self.config["gate_threshold"]
+
+        winner_probes = self.probes[winner_idx]
+        alpha = self.config.get("mix_alpha", 0.5)
+        s0_candidate = alpha * x_adapted + (1 - alpha) * winner_probes
+
+        gate_mask = is_gate_open.float().unsqueeze(1)
+        s0 = s0_candidate * gate_mask
+
+        confidence = probs.gather(1, winner_idx.unsqueeze(1)).squeeze(1)
+
+        return s0, {
+            "winner_id": winner_idx,
+            "raw_score": max_raw_score,
+            "gate_open": is_gate_open,
+            "confidence": confidence,
+            "raw_scores_tensor": raw_scores,
+        }
+
     def vitakka_search(self, x_input: torch.Tensor) -> Tuple[torch.Tensor, Dict[str, Any]]:
         """
         [Search Phase] 入力に対してプローブを照射し、初期アトラクタを決定します。
@@ -78,34 +155,44 @@ class SamadhiCore(nn.Module):
                              各キーはテンソルまたはリストを保持します。
                              例: {"winner_id": (B,) tensor, "gate_open": (B,) boolean tensor, ...}
         """
-        # 1. 入力の正規化 & 共鳴スコアの計算
-        x_norm = F.normalize(x_input, p=2, dim=1)
-        raw_scores = torch.matmul(x_norm, self.probes.T)  # (B, n_probes)
+        # 1. Input Adapter (Manasikāra)
+        x_adapted = self.adapter(x_input)
 
-        # 2. 絶対評価によるゲーティング
-        max_raw_score, winner_idx = torch.max(raw_scores, dim=1)  # (B,), (B,)
-        is_gate_open = max_raw_score > self.config["gate_threshold"]  # (B,)
+        # 2. 正規化 & 類似度計算
+        x_norm = F.normalize(x_adapted, p=2, dim=1)
+        raw_scores = torch.matmul(x_norm, self.probes.T)
 
-        # 3. 相対評価による確信度算出 (Softmax with Temperature)
-        w_hat = F.softmax(raw_scores / self.config["softmax_temp"], dim=1)  # (B, n_probes)
-        confidence = w_hat.gather(1, winner_idx.unsqueeze(1)).squeeze(1)  # (B,)
+        # 3. 確率分布 (Softmax)
+        temp = self.config.get("softmax_temp", 0.2)
+        probs = F.softmax(raw_scores / temp, dim=1)
 
-        # 4. 初期状態 S0 の生成
-        winner_probes = self.probes[winner_idx]  # (B, Dim)
-        s0_resonant = x_input * winner_probes
-        s0 = torch.where(is_gate_open.unsqueeze(1), s0_resonant, torch.zeros_like(x_input))
+        # 4. S0 生成 (Hard/Soft Switching)
+        # config["attention_mode"] で挙動を制御
+        #   - "soft": Soft Attention (学習用)
+        #   - "hard": Hard Selection (推論用 - Default)
+        mode = self.config.get("attention_mode", "hard")
 
-        # ゲートが閉じたアイテムの確信度を0に設定
-        confidence = torch.where(is_gate_open, confidence, torch.zeros_like(confidence))
+        if mode == "soft":
+            s0, meta_partial = self._compute_soft_s0(x_adapted, probs, raw_scores)
+        else:
+            # Default to "hard"
+            s0, meta_partial = self._compute_hard_s0(x_adapted, probs, raw_scores)
 
-        # バッチ対応のメタデータ
+        # --- メタデータ構築 (共通) ---
+        winner_idx = meta_partial["winner_id"]
+        winner_indices_cpu = winner_idx.detach().cpu().numpy()
+        labels = self.config["labels"]
+        winner_labels = [labels[i] for i in winner_indices_cpu]
+
         metadata = {
-            "winner_id": winner_idx,  # (B,) tensor
-            "winner_label": [self.config["labels"][i.item()] for i in winner_idx],  # List of strings
-            "confidence": confidence,  # (B,) tensor
-            "raw_score": max_raw_score,  # (B,) tensor
-            "gate_open": is_gate_open,  # (B,) boolean tensor
-            "raw_distribution": w_hat.detach().cpu().numpy(),  # (B, n_probes) numpy array
+            "winner_id": winner_idx,
+            "winner_label": winner_labels,
+            "confidence": meta_partial["confidence"],
+            "raw_score": meta_partial["raw_score"],
+            "gate_open": meta_partial["gate_open"],
+            "probs": probs,
+            "raw_distribution": probs.detach().cpu().numpy(),
+            "raw_scores": meta_partial["raw_scores_tensor"].detach().cpu().numpy(),
         }
 
         return s0, metadata
@@ -123,7 +210,7 @@ class SamadhiCore(nn.Module):
             energies (list): 各ステップの状態変化量（エネルギー）の履歴。
         """
         s_t = s0.clone()
-        trajectory = [s_t.detach().numpy().flatten()]
+        trajectory = [s_t.detach().cpu().numpy().flatten()]
         energies = []
 
         for _ in range(self.config["refine_steps"]):
@@ -139,7 +226,7 @@ class SamadhiCore(nn.Module):
             # 収束エネルギー (Stability Loss) の計算
             energy = torch.norm(s_t - s_prev).item()
             energies.append(energy)
-            trajectory.append(s_t.detach().numpy().flatten())
+            trajectory.append(s_t.detach().cpu().numpy().flatten())
 
             # 早期終了判定 (Appanā - Full Absorption)
             if energy < 1e-4:
