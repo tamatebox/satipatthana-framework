@@ -33,6 +33,24 @@ class BaseSamadhiTrainer:
         # Negative sum of p * log(p). Added 1e-9 for numerical stability to prevent log(0).
         return -torch.sum(probs * torch.log(probs + 1e-9), dim=1).mean()
 
+    def _compute_load_balance_loss(self, probs: torch.Tensor) -> torch.Tensor:
+        """
+        Computes the Load Balancing Loss to prevent Probe Collapse.
+        Penalizes the variance of the average probe usage across the batch.
+        Aim: Minimize Variance(mean(probs)) -> Uniform Distribution.
+        """
+        # probs: (Batch, NumProbes)
+        # 1. Calculate average usage of each probe in the batch
+        mean_usage = probs.mean(dim=0)  # (NumProbes,)
+
+        # 2. Calculate variance of usage
+        # We want all probes to be used equally (1/N).
+        # Variance = Mean((x - mu)^2).
+        # Minimizing variance pushes usage towards uniformity.
+        balance_loss = mean_usage.var()
+
+        return balance_loss
+
     def train_step(self, x: torch.Tensor, y: Optional[torch.Tensor] = None) -> float:
         """
         Executes a single training step for one batch.
@@ -62,10 +80,6 @@ class BaseSamadhiTrainer:
                 - List of inference logs (Dict or None)
         """
         self.model.eval()
-        # Explicitly set hard attention for inference
-        # Vitakka now handles mode switching internally, so no need to rebuild the instance.
-        self.model.config["attention_mode"] = "hard"
-
         self.model.to(self.device)
 
         all_results = []  # Purified image data

@@ -95,15 +95,12 @@ class SupervisedSamadhiTrainer(BaseSamadhiTrainer):
 
         return total_loss.item()
 
-    def fit(self, dataloader, epochs: int = 5, attention_mode: str = "soft"):
+    def fit(self, dataloader, epochs: int = 5):
         """
         Executes supervised learning for a specified number of epochs.
         The dataloader is expected to return (x, y) pairs.
         """
         self.model.train()
-        # Explicitly set soft attention for training
-        # Vitakka now handles mode switching internally, so no need to rebuild the instance.
-        self.model.config["attention_mode"] = attention_mode
 
         loss_history = []
 

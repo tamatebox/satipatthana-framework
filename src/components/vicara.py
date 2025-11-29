@@ -152,7 +152,11 @@ class ProbeVicara(VicaraBase):
         self.refiners = nn.ModuleList([self._build_refiner() for _ in range(self.n_probes)])
 
     def _refine_step(self, s_t: torch.Tensor, context: Dict[str, Any]) -> torch.Tensor:
-        mode = self.config.get("attention_mode", "hard")
+        # Determine mode based on training status
+        if self.training:
+            mode = self.config.get("training_attention_mode", "soft")
+        else:
+            mode = self.config.get("prediction_attention_mode", "hard")
 
         if mode == "soft":
             # Soft Mode: Weighted sum of all refiner outputs based on probe probabilities.

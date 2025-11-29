@@ -82,13 +82,12 @@ class UnsupervisedSamadhiTrainer(BaseSamadhiTrainer):
 
         return total_loss.item()
 
-    def fit(self, dataloader, epochs: int = 5, attention_mode: str = "soft"):
+    def fit(self, dataloader, epochs: int = 5):
         """
         Executes unsupervised learning for a specified number of epochs.
         The dataloader returns (x) or (x, y), but only x is used.
         """
         self.model.train()
-        self.model.config["attention_mode"] = attention_mode
 
         loss_history = []
 

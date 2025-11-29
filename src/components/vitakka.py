@@ -135,7 +135,12 @@ class Vitakka(nn.Module):
         probs = F.softmax(raw_scores / temp, dim=1)
 
         # 4. Generate S0 (Mode-based switching)
-        mode = self.config.get("attention_mode", "hard")
+        # Determine mode based on training status
+        if self.training:
+            mode = self.config.get("training_attention_mode", "soft")
+        else:
+            mode = self.config.get("prediction_attention_mode", "hard")
+
         if mode == "soft":
             s0, partial_meta = self._generate_soft_s0(x_adapted, probs, raw_scores)
         else:
