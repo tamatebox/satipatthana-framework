@@ -6,19 +6,18 @@ from src.train.base_trainer import BaseSamadhiTrainer
 
 class UnsupervisedSamadhiTrainer(BaseSamadhiTrainer):
     """
-    Samadhi Modelのための教師なし学習トレーナー。
-    入力データ(x)のみを用いて学習を行う。
-    ターゲットデータ(y)は使用しない。
-    Stability Loss と Entropy Loss のみを最小化する。
-    これにより、モデルは「自発的に安定するアトラクタ（概念）」を自己組織化する。
+    Unsupervised learning trainer for the Samadhi Model.
+    Trains using only input data (x), ignoring target data (y).
+    Minimizes only Stability Loss and Entropy Loss.
+    This allows the model to self-organize "spontaneously stable attractors (concepts)".
     """
 
     def train_step(self, x: torch.Tensor, y: Optional[torch.Tensor] = None) -> float:
         """
-        1バッチ分の学習ステップを実行
+        Executes a single training step for one batch.
         Args:
-            x (torch.Tensor): 入力データ (Batch, Dim)
-            y (torch.Tensor, Optional): 無視される
+            x (torch.Tensor): Input data (Batch, Dim)
+            y (torch.Tensor, Optional): Ignored.
         """
         x = x.to(self.device)
         # y is ignored
@@ -30,11 +29,11 @@ class UnsupervisedSamadhiTrainer(BaseSamadhiTrainer):
         # ====================================================
 
         # --- A. Search (Vitakka) ---
-        # s0 を取得
+        # Get s0
         s0, metadata = self.model.vitakka_search(x)
 
-        # Entropy Loss用の確率分布計算
-        # Metadataから取得する
+        # Calculate probability distribution for Entropy Loss
+        # Retrieved from metadata.
         probs = metadata["probs"]
 
         # --- B. Refine (Vicara) ---
@@ -46,23 +45,23 @@ class UnsupervisedSamadhiTrainer(BaseSamadhiTrainer):
             for _ in range(num_steps):
                 s_prev = s_t
                 residual = self.model.vicara.refine_step(s_t, metadata)
-                # 慣性更新
+                # Inertial update
                 s_t = 0.7 * s_t + 0.3 * residual
 
-                # バッチ内の各サンプルの変化量(L2ノルム)を合計
+                # Sum of change amount (L2 norm) for each sample in the batch
                 batch_stability_loss += torch.norm(s_t - s_prev, p=2, dim=1).sum()
 
         # ====================================================
         # 3. Loss Calculation
         # ====================================================
 
-        # (1) Reconstruction Loss は使用しない (正解がないため)
+        # (1) Reconstruction Loss is not used (as there is no target).
 
-        # (2) 安定性誤差 (Stability Loss): 心が不動になったか
+        # (2) Stability Loss: Has the mind become unmoving?
         if num_steps > 0:
             batch_stability_loss = batch_stability_loss / (len(x) * num_steps)
 
-        # (3) エントロピー誤差 (Entropy Loss): 迷わず選んだか
+        # (3) Entropy Loss: Was the selection made without hesitation?
         entropy_loss = self._compute_entropy(probs)
 
         # (Optional) Sparsity Loss or Latent Regularization could be added here
@@ -73,7 +72,7 @@ class UnsupervisedSamadhiTrainer(BaseSamadhiTrainer):
         stability_coeff = self.model.config.get("stability_coeff", 0.01)
         entropy_coeff = self.model.config.get("entropy_coeff", 0.1)
 
-        # 教師なし学習では Stability と Entropy のバランスが全て
+        # In unsupervised learning, the balance between Stability and Entropy is key.
         total_loss = (stability_coeff * batch_stability_loss) + (entropy_coeff * entropy_loss)
 
         total_loss.backward()
@@ -83,8 +82,8 @@ class UnsupervisedSamadhiTrainer(BaseSamadhiTrainer):
 
     def fit(self, dataloader, epochs: int = 5, attention_mode: str = "soft"):
         """
-        エポックを回して教師なし学習を実行
-        dataloaderは (x) または (x, y) を返すが、xのみを使用する。
+        Executes unsupervised learning for a specified number of epochs.
+        The dataloader returns (x) or (x, y), but only x is used.
         """
         self.model.train()
         self.model.config["attention_mode"] = attention_mode
@@ -102,14 +101,14 @@ class UnsupervisedSamadhiTrainer(BaseSamadhiTrainer):
             count = 0
 
             for batch_idx, batch_data in enumerate(dataloader):
-                # DataLoaderの形式対応
+                # DataLoader format handling
                 if isinstance(batch_data, list) or isinstance(batch_data, tuple):
                     x_batch = batch_data[0]
                     # y_batch (index 1) is ignored
                 else:
                     x_batch = batch_data
 
-                # Flatten対応
+                # Flatten handling
                 if x_batch.dim() > 2:
                     x_batch = x_batch.view(x_batch.size(0), -1)
 

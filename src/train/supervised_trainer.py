@@ -7,17 +7,17 @@ from src.train.base_trainer import BaseSamadhiTrainer
 
 class SupervisedSamadhiTrainer(BaseSamadhiTrainer):
     """
-    Samadhi Modelのための教師あり学習トレーナー。
-    入力データ(x)とターゲットデータ(y)のペアを用いて学習を行う。
-    Reconstruction Loss を使用する点が特徴。
+    Supervised learning trainer for the Samadhi Model.
+    Trains using pairs of input data (x) and target data (y).
+    Characterized by the use of Reconstruction Loss.
     """
 
     def train_step(self, x: torch.Tensor, y: Optional[torch.Tensor] = None) -> float:
         """
-        1バッチ分の学習ステップを実行
+        Executes a single training step for one batch.
         Args:
-            x (torch.Tensor): ノイズ付き入力データ (Batch, Dim)
-            y (torch.Tensor): ノイズのない正解データ (Batch, Dim)
+            x (torch.Tensor): Noisy input data (Batch, Dim)
+            y (torch.Tensor): Clean target data (Batch, Dim)
         """
         if y is None:
             raise ValueError("Target 'y' cannot be None for SupervisedSamadhiTrainer.")
@@ -32,15 +32,15 @@ class SupervisedSamadhiTrainer(BaseSamadhiTrainer):
         # ====================================================
 
         # --- A. Search (Vitakka) ---
-        # s0 を取得 (バッチ対応済み前提)
+        # Get s0 (assuming batch support)
         s0, metadata = self.model.vitakka_search(x)
 
-        # Entropy Loss用の確率分布計算
-        # Vitakka内部と同じ計算を行い、プローブ選択の「迷い」を数値化する
+        # Calculate probability distribution for Entropy Loss
+        # Performs the same calculation as inside Vitakka to quantify the 'indecision' of probe selection.
         probs = metadata["probs"]
 
         # --- B. Refine (Vicara) ---
-        # 学習用に勾配を維持しながら実行
+        # Execute while maintaining gradients for training.
         s_t = s0
         batch_stability_loss = torch.tensor(0.0, device=self.device)
         num_steps = self.model.config["refine_steps"]
@@ -49,10 +49,10 @@ class SupervisedSamadhiTrainer(BaseSamadhiTrainer):
             for _ in range(num_steps):
                 s_prev = s_t
                 residual = self.model.vicara.refine_step(s_t, metadata)
-                # 慣性更新 (0.7 / 0.3 のバランス)
+                # Inertial update (0.7 / 0.3 balance)
                 s_t = 0.7 * s_t + 0.3 * residual
 
-                # バッチ内の各サンプルの変化量(L2ノルム)を合計
+                # Sum of change amount (L2 norm) for each sample in the batch
                 batch_stability_loss += torch.norm(s_t - s_prev, p=2, dim=1).sum()
 
         s_final = s_t
@@ -62,20 +62,20 @@ class SupervisedSamadhiTrainer(BaseSamadhiTrainer):
         # 3. Loss Calculation
         # ====================================================
 
-        # (1) 復元誤差 (Reconstruction Loss): 正解に近づいたか
-        # 教師あり学習の核心：純化結果がターゲットと一致することを目指す
+        # (1) Reconstruction Loss: Has it approached the correct answer?
+        # The core of supervised learning: aims for the purified result to match the target.
         recon_loss = nn.MSELoss()(decoded_s_final, y)
 
-        # (2) 安定性誤差 (Stability Loss): 心が不動になったか
+        # (2) Stability Loss: Has the mind become unmoving?
         if num_steps > 0:
-            # バッチサイズとステップ数で正規化
+            # Normalize by batch size and number of steps
             batch_stability_loss = batch_stability_loss / (len(x) * num_steps)
 
-        # (3) エントロピー誤差 (Entropy Loss): 迷わず選んだか
+        # (3) Entropy Loss: Was the selection made without hesitation?
         entropy_loss = self._compute_entropy(probs)
 
         # --- Total Loss ---
-        # 係数をConfigから取得 (なければデフォルト値)
+        # Get coefficients from Config (or default values if not present)
         stability_coeff = self.model.config.get("stability_coeff", 0.01)
         entropy_coeff = self.model.config.get("entropy_coeff", 0.1)
 
@@ -88,8 +88,8 @@ class SupervisedSamadhiTrainer(BaseSamadhiTrainer):
 
     def fit(self, dataloader, epochs: int = 5, attention_mode: str = "soft"):
         """
-        エポックを回して教師あり学習を実行
-        dataloaderは (x, y) のペアを返すことを想定。
+        Executes supervised learning for a specified number of epochs.
+        The dataloader is expected to return (x, y) pairs.
         """
         self.model.train()
         # Explicitly set soft attention for training
@@ -109,12 +109,12 @@ class SupervisedSamadhiTrainer(BaseSamadhiTrainer):
             count = 0
 
             for batch_idx, batch_data in enumerate(dataloader):
-                # DataLoaderの形式対応: (x, y, ...)
+                # DataLoader format handling: (x, y, ...)
                 if isinstance(batch_data, list) or isinstance(batch_data, tuple):
                     x_batch = batch_data[0]
                     y_batch = batch_data[1]
                 else:
-                    # DataLoaderが単一のテンソルを返す場合はエラー（教師ありなので）
+                    # Error if DataLoader returns a single tensor (since it's supervised learning)
                     raise ValueError("DataLoader must return (input, target) pairs for SupervisedSamadhiTrainer.")
 
                 loss = self.train_step(x_batch, y_batch)

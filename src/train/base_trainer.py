@@ -6,15 +6,15 @@ from src.model.samadhi import SamadhiModel
 
 class BaseSamadhiTrainer:
     """
-    Samadhi Modelのためのトレーナー基底クラス。
-    共通の初期化処理、推論ロジック、ユーティリティを提供する。
+    Base trainer class for the Samadhi Model.
+    Provides common initialization, inference logic, and utilities.
     """
 
     def __init__(self, model: SamadhiModel, optimizer: optim.Optimizer, device: Optional[str] = None):
         self.model = model
         self.optimizer = optimizer
 
-        # デバイス自動判定
+        # Automatic device detection
         if device:
             self.device = torch.device(device)
         else:
@@ -29,36 +29,37 @@ class BaseSamadhiTrainer:
         print(f"Trainer initialized on device: {self.device}")
 
     def _compute_entropy(self, probs: torch.Tensor) -> torch.Tensor:
-        """確率分布のエントロピーを計算するヘルパー関数"""
-        # p * log(p) の和をマイナスしたもの。0log0対策で +1e-9
+        """Helper function to compute the entropy of a probability distribution."""
+        # Negative sum of p * log(p). Added 1e-9 for numerical stability to prevent log(0).
         return -torch.sum(probs * torch.log(probs + 1e-9), dim=1).mean()
 
     def train_step(self, x: torch.Tensor, y: Optional[torch.Tensor] = None) -> float:
         """
-        1バッチ分の学習ステップを実行。
-        サブクラスで実装すること。
+        Executes a single training step for one batch.
+        To be implemented by subclasses.
+
         Args:
-            x (torch.Tensor): 入力データ。
-            y (torch.Tensor, Optional): ターゲットデータ（教師あり学習の場合のみ）。
+            x (torch.Tensor): Input data.
+            y (torch.Tensor, Optional): Target data (for supervised learning only).
         """
         raise NotImplementedError
 
     def fit(self, *args, **kwargs):
         """
-        学習ループを実行。
-        サブクラスで実装すること。
+        Executes the training loop.
+        To be implemented by subclasses.
         """
         raise NotImplementedError
 
     def predict(self, dataloader) -> Tuple[List[torch.Tensor], List[Dict]]:
         """
-        学習済みモデルを使って推論を実行します。
-        共通ロジックとしてここで実装。
+        Executes inference using the trained model.
+        Implemented here as common logic.
 
         Returns:
             Tuple[List[torch.Tensor], List[Dict]]:
-                - 純化されたデータのリスト (CPU Tensor)
-                - 推論ログのリスト (Dict or None)
+                - List of purified data (CPU Tensor)
+                - List of inference logs (Dict or None)
         """
         self.model.eval()
         # Explicitly set hard attention for inference
@@ -67,13 +68,13 @@ class BaseSamadhiTrainer:
 
         self.model.to(self.device)
 
-        all_results = []  # 純化された画像データ
-        all_logs = []  # ログデータ
+        all_results = []  # Purified image data
+        all_logs = []  # Log data
 
         print("Running inference...")
         with torch.no_grad():
             for batch_data in dataloader:
-                # 1. データの取り出し (Tuple or Tensor)
+                # 1. Extract data (Tuple or Tensor)
                 if isinstance(batch_data, list) or isinstance(batch_data, tuple):
                     data = batch_data[0]
                 else:
@@ -81,23 +82,23 @@ class BaseSamadhiTrainer:
 
                 data = data.to(self.device)
 
-                # 3. バッチ内の各サンプルを推論
-                # (forward_sequenceではなく、1つずつ処理してリスト化する)
+                # 3. Infer each sample in the batch
+                # (Process one by one and list, rather than forward_sequence)
                 for i in range(len(data)):
                     x_in = data[i : i + 1]  # (1, Dim) or (1, C, H, W)
 
-                    # step_idx=0 (ダミー)
+                    # step_idx=0 (dummy)
                     out = self.model.forward_step(x_in, step_idx=0)
 
                     if out:
                         s_final, log = out
                         # Apply decoder to get the final output (image or vector)
                         final_output = self.model.decoder(s_final)
-                        all_results.append(final_output.cpu())  # CPUに戻して保存
+                        all_results.append(final_output.cpu())  # Save to CPU
                         all_logs.append(log)
                     else:
-                        # Gate Closed (棄却)
-                        # ノイズ除去失敗として、入力と同じサイズのゼロ(または入力そのもの)を返す
+                        # Gate Closed (Rejected)
+                        # Return zeros of the same size as input (or input itself) for failed noise removal.
                         all_results.append(torch.zeros_like(x_in).cpu())
                         all_logs.append(None)
 

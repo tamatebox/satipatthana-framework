@@ -8,9 +8,8 @@ class Vitakka(nn.Module):
     """
     Vitakka (Initial Application/Search) Component.
 
-    役割: 入力ストリームに対して「意図（Probe）」を検索し、初期状態 S0 を形成する。
-    思考の粗い段階（Coarse-grained thinking）を担当。
-    HardとSoftの両方のモードをこの単一クラス内で切り替えて処理する。
+    Searches for "intentions (Probes)" within the input stream to form the initial state S0.
+    This component is responsible for coarse-grained thinking. Handles both Hard and Soft attention modes within this single class.
     """
 
     def __init__(self, config: Dict[str, Any]):
@@ -25,7 +24,7 @@ class Vitakka(nn.Module):
         self._normalize_probes()
 
         # Adapter (Manasikāra - Attention/Adaptation)
-        # 入力をProbe空間に適応させる
+        # Adapts the input to the Probe space.
         self.adapter = self._build_adapter()
 
     def _build_adapter(self) -> nn.Module:
@@ -37,12 +36,12 @@ class Vitakka(nn.Module):
         return nn.Identity()
 
     def _normalize_probes(self):
-        """ProbesをL2正規化"""
+        """L2 normalizes the probes."""
         with torch.no_grad():
             self.probes.div_(torch.norm(self.probes, dim=1, keepdim=True))
 
     def load_probes(self, pretrained_probes: torch.Tensor):
-        """外部からProbeをロード"""
+        """Loads probes from an external source."""
         if pretrained_probes.shape != self.probes.shape:
             raise ValueError(f"Shape mismatch: expected {self.probes.shape}, got {pretrained_probes.shape}")
         with torch.no_grad():
@@ -52,7 +51,7 @@ class Vitakka(nn.Module):
     def _generate_hard_s0(
         self, x_adapted: torch.Tensor, probs: torch.Tensor, raw_scores: torch.Tensor
     ) -> Tuple[torch.Tensor, Dict[str, Any]]:
-        """[Hard Mode] 勝者プローブを1つだけ選択し、明確なゲート判定を行います。"""
+        """[Hard Mode] Selects a single winning probe and performs a clear gate decision."""
         # Max Score Selection
         max_raw_score, winner_idx = torch.max(raw_scores, dim=1)
         is_gate_open = max_raw_score > self.config["gate_threshold"]
@@ -82,7 +81,7 @@ class Vitakka(nn.Module):
     ) -> Tuple[torch.Tensor, Dict[str, Any]]:
         """
         Soft Attention Vitakka.
-        確率分布に従ってProbeを重み付き平均してS0とする。学習（微分可能）向け。
+        [Soft Mode] Computes S0 as a weighted average of probes according to their probability distribution. Suitable for training (differentiable).
         """
         # Weighted Probe Sum
         # (Batch, N) @ (N, Dim) -> (Batch, Dim)
@@ -93,7 +92,7 @@ class Vitakka(nn.Module):
         s0_candidate = alpha * x_adapted + (1 - alpha) * weighted_probes
 
         # Soft Gate Logic (Differentiable)
-        # 期待スコア (Weighted Average Score) を使用
+        # Uses expected score (weighted average score)
         avg_score = torch.sum(raw_scores * probs, dim=1)
         gate_logits = (avg_score - self.config["gate_threshold"]) * 10.0
         gate_mask = torch.sigmoid(gate_logits).unsqueeze(1)
@@ -143,8 +142,7 @@ class Vitakka(nn.Module):
             s0, partial_meta = self._generate_hard_s0(x_adapted, probs, raw_scores)
 
         # 5. Metadata Construction
-        # Convert indices to labels if on CPU/Single item, otherwise keep tensor
-        # Here we just keep tensor logic for batch efficiency
+        # Converts indices to labels if on CPU/Single item, otherwise keeps tensor logic for batch efficiency.
 
         metadata = {
             "winner_id": partial_meta["winner_id"],

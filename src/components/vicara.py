@@ -10,8 +10,8 @@ class VicaraBase(nn.Module, ABC):
     """
     Vicāra (Sustained Application/Refinement) Component Base Class.
 
-    役割: 初期状態 S0 を受け取り、再帰的プロセスによってノイズを除去し、状態を純化（Refine）する。
-    思考の微細な段階（Fine-grained thinking）を担当。
+    Receives an initial state S0 and purifies (refines) it by removing noise through a recursive process.
+    This component is responsible for fine-grained thinking.
     """
 
     def __init__(self, config: Dict[str, Any]):
@@ -22,8 +22,8 @@ class VicaraBase(nn.Module, ABC):
 
         # Refiner Networks (The "Phi" loop)
         # S_t -> S_{t+1} (residual)
-        # Standardize to ModuleList for all subclasses
-        # Default implementation creates a single refiner
+        # Standardizes to ModuleList for all subclasses.
+        # The default implementation creates a single refiner.
         self.refiners = nn.ModuleList([self._build_refiner()])
 
     def _build_refiner(self) -> nn.Module:
@@ -76,8 +76,7 @@ class VicaraBase(nn.Module, ABC):
             s_t = 0.7 * s_t + 0.3 * residual
 
             # Compute Energy (Stability)
-            # Batch-wise mean energy for simple logging, or keep individual
-            # Here we compute mean for simple list logging
+            # Calculates batch-wise mean energy for simple logging, though individual energies could be kept.
             dist = torch.norm(s_t - s_prev, dim=1)
             energy = dist.mean().item()
             energies.append(energy)
@@ -101,7 +100,7 @@ class VicaraBase(nn.Module, ABC):
     @abstractmethod
     def _refine_step(self, s_t: torch.Tensor, context: Dict[str, Any]) -> torch.Tensor:
         """
-        1ステップの純化計算。
+        Executes a single step of purification calculation.
         """
         pass
 
@@ -109,7 +108,7 @@ class VicaraBase(nn.Module, ABC):
 class StandardVicara(VicaraBase):
     """
     Standard Vicāra.
-    単一の Refiner ネットワークを使用して純化を行う。
+    Performs purification using a single refiner network.
     """
 
     def _refine_step(self, s_t: torch.Tensor, context: Dict[str, Any]) -> torch.Tensor:
@@ -132,15 +131,15 @@ class WeightedVicara(VicaraBase):
 class ProbeVicara(VicaraBase):
     """
     Probe-Specific Vicāra.
-    各Probe（概念）ごとに異なるRefiner（純化ロジック）を持つ。
+    Possesses a distinct refiner (purification logic) for each probe (concept).
     """
 
     def __init__(self, config: Dict[str, Any]):
         # Base init creates a single refiner in self.refiners
         super().__init__(config)
 
-        # Override self.refiners with n_probes specific refiners
-        # Note: This discards the one created in super().__init__
+        # Overrides self.refiners with n_probes specific refiners.
+        # Note: This discards the one created in super().__init__.
         self.n_probes = config["n_probes"]
         self.refiners = nn.ModuleList([self._build_refiner() for _ in range(self.n_probes)])
 
@@ -148,7 +147,7 @@ class ProbeVicara(VicaraBase):
         mode = self.config.get("attention_mode", "hard")
 
         if mode == "soft":
-            # Soft Mode: 全Refinerの出力をProbe確率で重み付け加算
+            # Soft Mode: Weighted sum of all refiner outputs based on probe probabilities.
             if "probs" not in context:
                 raise ValueError("ProbeVicara in soft mode requires 'probs' in context.")
 
@@ -164,19 +163,19 @@ class ProbeVicara(VicaraBase):
             return output
 
         else:
-            # Hard Mode: サンプルごとに勝者ProbeのRefinerのみ適用
+            # Hard Mode: Only applies the refiner of the winning probe for each sample.
             winner_ids = context["winner_id"]
 
-            # Batchサイズ1 または 単一整数の場合 (Inference時など)
+            # Case for batch size 1 or single integer (e.g., during inference)
             if isinstance(winner_ids, int):
                 return self.refiners[winner_ids](s_t)
 
             if winner_ids.dim() == 0:  # 0-d tensor
                 return self.refiners[winner_ids.item()](s_t)
 
-            # Batch処理 (Winnerごとにマスクして適用)
+            # Batch processing: Apply refiner by masking for each winner.
             output = torch.zeros_like(s_t)
-            # 各Probeについてループし、そのProbeが勝者であるサンプルのみ計算して埋める
+            # Loop through each probe and compute/fill for samples where that probe is the winner.
             for i, refiner in enumerate(self.refiners):
                 mask = winner_ids == i
                 if mask.any():

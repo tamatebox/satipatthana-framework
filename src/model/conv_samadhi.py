@@ -10,25 +10,23 @@ class ConvSamadhiModel(SamadhiModel):
     """
     Convolutional Samadhi Model (Latent Samadhi).
 
-    画像データをAdapterで低次元の潜在ベクトルに圧縮し、
-    その潜在空間内で「検索(Vitakka)」と「純化(Vicara)」を行います。
-    最後にDecoderを用いて純化された潜在ベクトルから画像を再構成します。
+    Compresses image data into a low-dimensional latent vector using an Adapter, then performs "search (Vitakka)" and "purification (Vicara)" within that latent space. Finally, it reconstructs an image from the purified latent vector using a Decoder.
     """
 
     def __init__(self, config):
-        # 1. 画像設定の読み込み
+        # 1. Load image configuration
         self.channels = config.get("channels", 3)
         self.img_size = config.get("img_size", 32)
 
-        # 親クラス初期化前に、configにConvSamadhi用のadapter/decoder情報を追加することも可能だが、
-        # ここでは直接_build_adapter等をオーバーライドする。
+        # While it's possible to add adapter/decoder info for ConvSamadhi to config before super().__init__,
+        # we directly override _build_adapter etc. here.
         super().__init__(config)
 
-        # VitakkaのデフォルトAdapterをCNNベースのAdapterに置き換える
+        # Replace Vitakka's default Adapter with a CNN-based Adapter.
         self.vitakka.adapter = self._build_cnn_adapter()
 
     def _build_vicara(self, config: Dict[str, Any]) -> VicaraBase:
-        # Vicaraのrefinerは通常Linearなので、変更不要。必要ならオーバーライド。
+        # Vicara's refiner is typically Linear, so no change is required. Override if necessary.
         return super()._build_vicara(config)
 
     def _build_cnn_adapter(self) -> nn.Module:

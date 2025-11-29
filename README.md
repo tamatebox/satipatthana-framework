@@ -1,39 +1,38 @@
 # Samadhi Model (Deep Convergence Architecture)
 
 > **"From Generation to Convergence."**
-> 生成（Divergence）から、収束（Convergence）へ。
 
 ![Status](https://img.shields.io/badge/Status-Experimental-orange)
 ![Python](https://img.shields.io/badge/Python-3.12%2B-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
-**Samadhi Model**は、従来の「系列予測（Next Token Prediction）」を行う生成AIに対し、対象の「本質的構造の抽出」と「内部状態の不動化」を目的とした、新しい**再帰型アテンション・アーキテクチャ**です。
+**Samadhi Model** is a novel **recursive attention architecture** designed not for traditional "sequence prediction (Next Token Prediction)" seen in generative AI, but for "extracting the essential structure" and "stabilizing the internal state" of the subject.
 
-情報の水平的な拡張（おしゃべりな生成）ではなく、垂直的な深化（静寂な洞察）を工学的に実装します。
+It engineeringly implements a vertical deepening of information (quiet insight) rather than horizontal expansion (talkative generation).
 
 ---
 
 ## 🧘 Concept & Philosophy
 
-現代のLLM（Transformer）は、確率分布の波に乗って次々とトークンを生成する「拡散的」な性質を持ちます。対して **Samadhi Model** は、力学系のアトラクタ（不動点）へ向かって状態を遷移させる「収束的」なモデルです。
+Modern LLMs (Transformers) have a "divergent" nature, generating tokens one after another by riding the waves of probability distributions. In contrast, the **Samadhi Model** is a "convergent" model that transitions its state towards a dynamical system's attractor (fixed point).
 
-仏教心理学における禅定（Samadhi）のプロセスを、以下のエンジニアリング・モジュールとして実装しています。
+It implements the process of meditative concentration (Samadhi) in Buddhist psychology as the following engineering modules:
 
 | Module | Buddhist Term | Engineering Concept | Function |
 | :--- | :--- | :--- | :--- |
-| **Vitakka** | 尋 (Initial Application) | **Active Probing** | カオス的な入力から「意図（Probe）」を検索・捕捉する。 |
-| **Sati** | 正知 (Clear Comprehension) | **Gating Mechanism** | ノイズや幻覚（Hallucination）を検知し、処理を遮断する。 |
-| **Vicāra** | 伺 (Sustained Application) | **Recurrent Refinement** | 外部入力を遮断し、再帰ループで状態エネルギーを最小化（純化）する。 |
-| **Santāna** | 相続 (Continuity) | **State Dynamics Log** | 意図の遷移（集中・転換・散乱）を時系列で追跡する。 |
+| **Vitakka** | 尋 (Initial Application) | **Active Probing** | Searches and captures "intentions (Probes)" from chaotic input. |
+| **Sati** | 正知 (Clear Comprehension) | **Gating Mechanism** | Detects noise and hallucinations, blocking further processing. |
+| **Vicāra** | 伺 (Sustained Application) | **Recurrent Refinement** | Blocks external input and minimizes state energy (purifies) through a recursive loop. |
+| **Santāna** | 相続 (Continuity) | **State Dynamics Log** | Tracks the temporal transitions of intentions (concentration, shift, dispersion). |
 
 ---
 
 ## 🚀 Key Features
 
-* **Convergence (収束性):** 出力はテキストストリームではなく、エントロピーが極小化された単一の「純化状態（Purified State）」です。
-* **O(1) Inference:** 推論コストは入力長（Context Length）に依存せず、収束までのステップ数（定数）のみに依存します。
-* **Noise Robustness:** 強力なGating機構により、意味のない入力（雑念）に対しては計算リソースを割かず「沈黙」を返します。
-* **Explainability (XAI):** 「なぜその対象に注目したか」「どのように集中が深まったか」がログとして完全に可視化されます。
+*   **Convergence:** The output is not a text stream, but a single "Purified State" with minimized entropy.
+*   **O(1) Inference:** Inference cost does not depend on the input length (Context Length), but only on the number of convergence steps (a constant).
+*   **Noise Robustness:** The powerful Gating mechanism returns "silence" for meaningless inputs (distractions) without allocating computational resources.
+*   **Explainability (XAI):** "Why a particular subject was focused on" and "how concentration deepened" are fully visualized as logs.
 
 ---
 
@@ -48,11 +47,8 @@
 │   ├── model/          # Core Architectures (SamadhiCore, ConvSamadhi)
 │   └── train/          # Trainer Implementations (Base, Supervised, Unsupervised)
 ├── test/               # Demos and Training Examples
-│   ├── test_minist.py
-│   ├── test_trainer_cbsd68.py
 │   ├── test_trainer_cifar10.py
-│   ├── test_trainer_mnist.py
-│   └── test_unsupervised_mnist.py
+│   └── test_trainer_mnist.py
 ├── main.py             # Entry point
 └── pyproject.toml      # Project configuration (uv)
 ````
@@ -63,16 +59,16 @@
 
 ### Prerequisites
 
-このプロジェクトはパッケージマネージャーに `uv` を使用しています。
+This project uses `uv` as its package manager.
 
 ```bash
 # Install dependencies
 uv sync
 ```
 
-### 1\. Basic Usage (Signal Purification)
+### 1. Basic Usage (Signal Purification)
 
-ノイズ混じりの波形から、特定の信号（意図）を抽出する最小限のデモです。
+This is a minimal demo for extracting specific signals (intentions) from noisy waveforms.
 
 ```python
 from src.model import SamadhiCore, CONFIG
@@ -95,27 +91,13 @@ else:
     print("[--- SILENCE ---] Distraction detected.")
 ```
 
-### 2\. Run Demos
-
-**Visual Samadhi (MNIST Inference Demo)**
-ノイズだらけの画像から、モデルが「数字の概念」を見出し、鮮明なイメージへ収束させる過程を可視化します。
-
-```bash
-uv run test/test_minist.py
-```
+### 2. Run Demos
 
 **Supervised Training Loop (MNIST Denoising)**
-MNISTデータセットを用いた教師あり学習のデモです。ノイズの多い画像から数字の概念を抽出し、純化する過程を学習します。
+This demo shows supervised learning using the MNIST dataset. It learns the process of purifying noisy images.
 
 ```bash
 uv run test/test_trainer_mnist.py
-```
-
-**Unsupervised Training Loop (MNIST Concept Discovery)**
-MNISTデータセットを用いた教師なし学習のデモです。モデルが自律的にデータの背後にある概念（プローブ）を学習します。
-
-```bash
-uv run test/test_unsupervised_mnist.py
 ```
 
 -----
@@ -124,7 +106,7 @@ uv run test/test_unsupervised_mnist.py
 
 | Feature | Transformer (GPT) | Samadhi Model (Ours) |
 | :--- | :--- | :--- |
-| **Vector Flow** | Divergence (発散・生成) | Convergence (収束・純化) |
+| **Vector Flow** | Divergence | Convergence |
 | **Time Complexity** | $O(N^2)$ (Quadratic) | $O(1)$ (Constant/Iterative) |
 | **Dependency** | Context History | Current State Only (Markov) |
 | **Objective** | Likelihood Maximization | Stability Energy Minimization |
@@ -134,11 +116,11 @@ uv run test/test_unsupervised_mnist.py
 
 ## 🛠 Roadmap
 
-  - [x] **v1.0:** Theoretical Definition (Concept Proof)
-  - [x] **v2.2:** Waveform Simulation (Vitakka/Vicāra Implemented)
-  - [x] **v2.3:** Gating & Meta-Cognition (Sati Implemented)
-  - [ ] **v3.0:** NLP Implementation (Text Summarization/Concept Extraction)
-  - [ ] **Future:** Multi-Agent Samadhi (Dialogue of Insight)
+*   [x] **v1.0:** Theoretical Definition (Concept Proof)
+*   [x] **v2.2:** Waveform Simulation (Vitakka/Vicāra Implemented)
+*   [x] **v2.3:** Gating & Meta-Cognition (Sati Implemented)
+*   [ ] **v3.0:** NLP Implementation (Text Summarization/Concept Extraction)
+*   [ ] **Future:** Multi-Agent Samadhi (Dialogue of Insight)
 
 -----
 
