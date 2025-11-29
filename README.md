@@ -40,18 +40,29 @@ It implements the process of meditative concentration (Samadhi) in Buddhist psyc
 
 ```bash
 .
-├── data/               # MNIST, Waveform datasets
+├── data/               # MNIST, Sensor, Credit Card datasets
 ├── docs/               # Theoretical specifications
+├── notebooks/          # Experiments and Analysis
+│   ├── fraud_detection.ipynb             # Tabular Anomaly Detection (Credit Card)
+│   ├── time_series_anomaly_detection.ipynb # Time Series Anomaly Detection (Sensor)
+│   └── mnist.ipynb                         # Visual Samadhi Demo
 ├── src/
 │   ├── components/     # Vitakka (Search) and Vicara (Refinement) modules
-│   ├── model/          # Core Architectures (SamadhiCore, ConvSamadhi)
-│   └── train/          # Trainer Implementations (Base, Supervised, Unsupervised)
-├── test/               # Demos and Training Examples
-│   ├── test_trainer_cifar10.py
-│   └── test_trainer_mnist.py
+│   ├── model/          # Core Architectures
+│   │   ├── samadhi.py              # Base Class
+│   │   ├── conv_samadhi.py         # CNN-based (Image)
+│   │   ├── mlp_samadhi.py          # MLP-based (Tabular)
+│   │   ├── lstm_samadhi.py         # LSTM-based (Time Series)
+│   │   └── transformer_samadhi.py  # Transformer-based (Time Series)
+│   └── train/          # Trainer Implementations
+│       ├── base_trainer.py
+│       ├── supervised_trainer.py
+│       ├── unsupervised_trainer.py
+│       └── anomaly_trainer.py      # Contrastive Margin Loss Trainer
+├── tests/              # Unit Tests (Contents not listed in provided structure)
 ├── main.py             # Entry point
 └── pyproject.toml      # Project configuration (uv)
-````
+```
 
 -----
 
@@ -71,33 +82,26 @@ uv sync
 This is a minimal demo for extracting specific signals (intentions) from noisy waveforms.
 
 ```python
-from src.model import SamadhiCore, CONFIG
+from src.model.samadhi import SamadhiCore
+# Note: SamadhiCore is now an abstract base or part of specific implementations like MlpSamadhiModel
 import torch
 
-# Initialize Model
-CONFIG["dim"] = 64
-model = SamadhiCore(CONFIG)
-
-# Input: Noise mixed with a target signal
-noisy_input = torch.randn(1, 64)
-
-# Execute One Step of Meditation
-s_final, log = model.forward_step(noisy_input, step_idx=0)
-
-if log["probe_log"]["gate_open"]:
-    print(f"Focused on: {log['probe_log']['winner_label']}")
-    print(f"Converged Energy: {log['energies'][-1]}")
-else:
-    print("[--- SILENCE ---] Distraction detected.")
+# Configuration would be specific to the model type
+config = {"dim": 64, "n_probes": 5, "refine_steps": 5, "gate_threshold": 0.5}
+# ... (Initializing specific model like MlpSamadhiModel)
 ```
 
-### 2. Run Demos
+### 2. Run Experiments (Jupyter Notebooks)
 
-**Supervised Training Loop (MNIST Denoising)**
-This demo shows supervised learning using the MNIST dataset. It learns the process of purifying noisy images.
+For various experiments including visual demos, supervised/unsupervised training, and anomaly detection tasks (Credit Card Fraud, Sensor Failures), use the Jupyter Notebooks provided in `notebooks/`.
 
 ```bash
-uv run test/test_trainer_mnist.py
+# Start Jupyter
+uv run jupyter notebook
+# Open notebooks such as:
+# - 'notebooks/mnist.ipynb' (Visual Samadhi Demo)
+# - 'notebooks/fraud_detection.ipynb' (Tabular Anomaly Detection)
+# - 'notebooks/time_series_anomaly_detection.ipynb' (Time Series Anomaly Detection)
 ```
 
 -----
@@ -119,6 +123,7 @@ uv run test/test_trainer_mnist.py
 *   [x] **v1.0:** Theoretical Definition (Concept Proof)
 *   [x] **v2.2:** Waveform Simulation (Vitakka/Vicāra Implemented)
 *   [x] **v2.3:** Gating & Meta-Cognition (Sati Implemented)
+*   [x] **v2.4:** Anomaly Detection & Time Series Support (LSTM/Transformer)
 *   [ ] **v3.0:** NLP Implementation (Text Summarization/Concept Extraction)
 *   [ ] **Future:** Multi-Agent Samadhi (Dialogue of Insight)
 

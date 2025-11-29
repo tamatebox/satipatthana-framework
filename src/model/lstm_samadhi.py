@@ -75,6 +75,7 @@ class LstmDecoder(nn.Module):
         super().__init__()
         self.seq_len = seq_len
         self.output_dim = output_dim
+        self.num_layers = num_layers  # Store num_layers
 
         # Map latent z back to LSTM initial hidden state
         self.fc_start = nn.Linear(latent_dim, hidden_dim)
@@ -87,9 +88,11 @@ class LstmDecoder(nn.Module):
         batch_size = z.size(0)
 
         # Initialize hidden state from z
-        h_0 = self.fc_start(z).unsqueeze(0)  # (1, Batch, Hidden_Dim)
-        # Assuming num_layers=1 for simplicity in init. For >1 layers, might need more complex init.
-        # c_0 can be zeros or also learned. Let's use zeros.
+        # (Batch, Hidden_Dim) -> (1, Batch, Hidden_Dim) -> (Num_Layers, Batch, Hidden_Dim)
+        h_0_single = self.fc_start(z).unsqueeze(0)
+        h_0 = h_0_single.repeat(self.num_layers, 1, 1)
+
+        # c_0 also needs to match (Num_Layers, Batch, Hidden_Dim)
         c_0 = torch.zeros_like(h_0)
 
         # Prepare input for LSTM (Repeat z or use zeros/start token)

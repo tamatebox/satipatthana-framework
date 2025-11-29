@@ -9,11 +9,18 @@
 | キー | デフォルト値 | 必須 | ファイル | 説明 |
 | :--- | :--- | :--- | :--- | :--- |
 | **`dim`** | - | **はい** | `samadhi.py`, `vitakka.py`, `vicara.py` | 潜在状態ベクトル（$S$）の次元。 |
+| **`input_dim`** | - | **はい** | `mlp_samadhi.py`, `lstm_samadhi.py`, `transformer_samadhi.py` | 入力データの次元 (MLPの場合: 特徴量数、LSTM/Transformerの場合: 各タイムステップの特徴量数)。 |
+| **`seq_len`** | - | **はい** | `lstm_samadhi.py`, `transformer_samadhi.py` | *(LSTM/Transformerのみ)* 時系列シーケンスの長さ (スライディングウィンドウサイズ)。 |
 | **`n_probes`** | - | **はい** | `vitakka.py`, `vicara.py` | 検索対象となる「概念」またはプローブの数。 |
 | **`vicara_type`** | `"standard"` | いいえ | `samadhi.py` | リファインメントモジュールのタイプ: `"standard"`、`"weighted"`、または`"probe_specific"`。 |
 | **`channels`** | `3` | いいえ | `conv_samadhi.py` | *(ConvSamadhiのみ)* 入力画像のチャンネル数。 |
 | **`img_size`** | `32` | いいえ | `conv_samadhi.py` | *(ConvSamadhiのみ)* 入力画像のサイズ（正方形を想定）。 |
 | **`labels`** | `[]` | いいえ | `samadhi.py` | プローブインデックスにマッピングされる文字列ラベルのリスト（人間が読めるロギング用）。 |
+| **`adapter_hidden_dim`** | `256` (MLP), `128` (LSTM/Transformer) | いいえ | `mlp_samadhi.py`, `lstm_samadhi.py`, `transformer_samadhi.py` | アダプター（エンコーダー）内の隠れ層の次元。 |
+| **`lstm_layers`** | `1` | いいえ | `lstm_samadhi.py` | *(LstmSamadhiのみ)* LSTM層の数。 |
+| **`transformer_layers`** | `2` | いいえ | `transformer_samadhi.py` | *(TransformerSamadhiのみ)* Transformer Encoder層の数。 |
+| **`transformer_heads`** | `4` | いいえ | `transformer_samadhi.py` | *(TransformerSamadhiのみ)* Multi-head Attentionのヘッド数。 |
+
 
 ### Vitakka (Search)
 | Key | Symbol | Recommended Value | Description |
@@ -42,6 +49,8 @@
 | **`stability_coeff`**| `0.01` | いいえ | **安定性損失**の重み（状態の動き$||S_t - S_{t-1}||$にペナルティを与えます）。 |
 | **`entropy_coeff`** | `0.1` | いいえ | **エントロピー損失**の重み（プローブ選択における躊躇にペナルティを与えます）。 |
 | **`balance_coeff`** | `0.001` | いいえ | **ロードバランス損失**の重み（均一な使用を強制することで「プローブ崩壊」を防ぎます）。 |
+| **`anomaly_margin`** | `5.0` | いいえ | *(AnomalyTrainerのみ)* 異常データの復元誤差がこれ以下の場合にペナルティを与えるマージン。高いほど厳しくなります。 |
+| **`anomaly_weight`** | `1.0` | いいえ | *(AnomalyTrainerのみ)* 異常データに対するマージン損失の重み。高いほど異常を遠ざける力が強まります。 |
 
 ### 必須キーの要約
 
@@ -49,6 +58,8 @@
 ```python
 config = {
     "dim": ...,             # int (例: 64)
+    "input_dim": ...,       # int (例: 29 for tabular, features per timestep for sequence)
+    "seq_len": ...,         # int (例: 30 for sequence models)
     "n_probes": ...,        # int (例: 10)
     "gate_threshold": ...,  # float (例: 0.5)
     "refine_steps": ...,    # int (例: 5)
