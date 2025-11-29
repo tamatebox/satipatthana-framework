@@ -25,6 +25,8 @@ It implements the process of meditative concentration (Samadhi) in Buddhist psyc
 | **Vicāra** | 伺 (Sustained Application) | **Recurrent Refinement** | Blocks external input and minimizes state energy (purifies) through a recursive loop. |
 | **Santāna** | 相続 (Continuity) | **State Dynamics Log** | Tracks the temporal transitions of intentions (concentration, shift, dispersion). |
 
+> 📖 For detailed architecture specifications, see [docs/model.md](docs/model.md).
+
 ---
 
 ## 🚀 Key Features
@@ -33,6 +35,19 @@ It implements the process of meditative concentration (Samadhi) in Buddhist psyc
 *   **O(1) Inference:** Inference cost does not depend on the input length (Context Length), but only on the number of convergence steps (a constant).
 *   **Noise Robustness:** The powerful Gating mechanism returns "silence" for meaningless inputs (distractions) without allocating computational resources.
 *   **Explainability (XAI):** "Why a particular subject was focused on" and "how concentration deepened" are fully visualized as logs.
+
+---
+
+## 🌟 Potential Applications
+
+The unique properties of the Samadhi Model make it suitable for tasks requiring deep insight and state stability rather than simple generation.
+
+1.  **Biosignal Analysis (Healthcare):** Extract stable physiological states (e.g., stress levels, cognitive load) from noisy EEG or heart rate data, filtering out artifacts.
+2.  **Anomaly Detection (Forensics):** Identify "essential anomalies" in financial transactions or machine logs by converging normal patterns and detecting deviations (gating out noise).
+3.  **Human Intent Analysis (UX/Psychology):** Capture deep user intent or emotional shifts from interactions, beyond surface-level keywords.
+4.  **Autonomous Agents (Robotics):** Enable stable decision-making in chaotic environments by converging sensory inputs into clear actionable states.
+5.  **Creative Assistance (Structure Extraction):** Distill core concepts or themes from multiple creative drafts to maintain stylistic consistency.
+6.  **LLM Integration (Refinement & Verification):** Enhance Large Language Models by stabilizing their intent, refining prompts, and verifying generated outputs to reduce hallucinations and improve coherence.
 
 ---
 

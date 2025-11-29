@@ -5,7 +5,7 @@
 
 -----
 
-## 1\. 概念定義 (Concept Definition)
+## 1. 概念定義 (Concept Definition)
 
 **Samadhi Model**は、従来の「系列予測（Next Token Prediction）」を行う生成モデルに対し、対象の「本質的構造の抽出（State Refinement）」と「内部状態の不動化（Convergence）」を目的とした、**再帰型アテンション・アーキテクチャ**である。
 
@@ -15,13 +15,24 @@
 
 -----
 
-## 2\. システムアーキテクチャ (System Architecture)
+## 2. システムアーキテクチャ (System Architecture)
 
-本モデルは、直列に接続された3つの主要モジュールによって構成される。
+本モデルは、入力の前処理・後処理を行うアダプターと、中核となる再帰的純化ループによって構成される。
+
+### Module 0: Adapter (Manasikāra - Input Adaptation)
+
+**機能:** 異なるモダリティ（画像、時系列、テキストなど）を持つ生の外部入力 $X_{raw}$ を、モデル固有の潜在空間（Samadhi Space）へ投影・正規化する。
+
+*   **Role:** 外界の信号を、モデルが扱える「意味の形式」へと変換する（作意）。
+*   **Implementations:**
+    *   *MLP Adapter:* タブラーデータやフラットなベクトル用。
+    *   *CNN Adapter:* 画像データ用。
+    *   *LSTM/Transformer Adapter:* 時系列データ用。
+*   **Output:** 潜在ベクトル $X_{adapted} \in \mathbb{R}^d$。
 
 ### Module A: Vitakka (Search & Orientation)
 
-**機能:** カオス的な入力ストリームから、収束に値する初期アトラクタ（種）を発見し、方向付けを行う。
+**機能:** カオス的な入力ストリーム（$X_{adapted}$）から、収束に値する初期アトラクタ（種）を発見し、方向付けを行う。
 
 1.  **Concept Probes ($\mathbf{P}$):**
       * システムは $K$ 個の「概念プローブ（基底ベクトル）」を持つ。
@@ -41,19 +52,19 @@
 **機能:** 外部入力を遮断し、内部状態を再帰的に純化する。
 
 **Architecture Variants (`vicara_type`):**
-  * **Standard Vicāra:** 単一の汎用Refiner ($\Phi$) を共有する。全ての概念に対して同じ純化ロジックを適用する。
-  * **Probe-Specific Vicāra (New in v2.3):** 各概念プローブ $p_k$ に対応する専用のRefiner ($\Phi_k$) を持つ。
+  * **Standard Vicāra:** 単一の汎用Refiner ($\\Phi$) を共有する。全ての概念に対して同じ純化ロジックを適用する。
+  * **Probe-Specific Vicāra (New in v2.3):** 各概念プローブ $p_k$ に対応する専用のRefiner ($\\Phi_k$) を持つ。
       * これにより、「呼吸の純化」と「痛みの純化」といった異なる概念に対して、それぞれ最適化された力学系を割り当てることが可能になる。
       * `config["vicara_type"] = "probe_specific"` で有効化。
 
 1.  **Isolation:** $t > 0$ において、外部入力 $X$ へのゲートを閉じ、自己ループのみにする。
 2.  **Refinement Loop:**
-      * **Hard Attention Mode (Inference):** 勝者プローブに対応するRefiner $\Phi_{win}$ のみを適用する。
-          * $S_{t+1} = \Phi_{win}(S_t)$
+      * **Hard Attention Mode (Inference):** 勝者プローブに対応するRefiner $\\Phi_{win}$ のみを適用する。
+          * $S_{t+1} = \\Phi_{win}(S_t)$
       * **Soft Attention Mode (Training):** 全プローブの確率分布に基づく重み付き和で更新する（勾配伝播のため）。
-          * $S_{t+1} = \sum_k w_k \Phi_k(S_t)$
+          * $S_{t+1} = \sum_k w_k \\Phi_k(S_t)$
 3.  **Convergence Check:**
-      * 状態変化量 $||S_{t+1} - S_t||$ が $\epsilon$ 未満になった時点で「Appanā (没入)」とみなし、推論を終了する。
+      * 状態変化量 $||S_{t+1} - S_t||$ が $\\epsilon$ 未満になった時点で「Appanā (没入)」とみなし、推論を終了する。
 
 ### Module C: Sati-Sampajañña (Meta-Cognition & Logging)
 
@@ -62,22 +73,32 @@
 1.  **Probe Log (瞬間の気づき):** そのステップで何が選ばれたか。
 2.  **Cetanā Dynamics (時間の流れ):** 前ステップとの比較による、意図の遷移（持続、転換、拡散）の追跡。
 
+### Module D: Decoder (Expression - Output Reconstruction)
+
+**機能:** 収束・純化された潜在状態 $S_{final}$ を、元の入力形式やターゲット形式に復元・変換する。
+
+*   **Role:** 内的な洞察（Insight）を、外的な表現（Expression）へと戻す。
+*   **Implementations:**
+    *   *Reconstruction (Autoencoder):* $S_{final}$ を元の入力 $X_{raw}$ に近づける（異常検知など）。
+    *   *Classification/Regression:* $S_{final}$ からクラスラベルや値を予測する。
+*   **Output:** 再構成データ $\hat{X}$ または予測値 $Y$。
+
 -----
 
-## 3\. 数理モデル (Mathematical Formulation)
+## 3. 数理モデル (Mathematical Formulation)
 
 ### 3.1. Vitakka Phase (Resonance)
 
-入力 $X \in \mathbb{R}^{L \times d}$ に対するプローブ $p_k$ の共鳴スコア $R_k$:
+入力 $X 	o \mathbb{R}^{L \times d}$ に対するプローブ $p_k$ の共鳴スコア $R_k$:
 
-$Score_k = || \frac{1}{\sqrt{d}} \sum_{i=1}^{L} \text{Softmax}(p_k^T x_i) \cdot x_i ||$
+$Score_k = || \frac{1}{\\sqrt{d}} \sum_{i=1}^{L} \text{Softmax}(p_k^T x_i) \cdot x_i ||$
 
 勝者決定と確率分布（側方抑制付き）:
 $\hat{w} = \text{Softmax}\left( \frac{[Score_1, \dots, Score_K]}{\tau} \right)$
 
 ### 3.2. Initialization ($S_0$)
 
-ゲート $G \in \{0, 1\}$ による初期状態の決定:
+ゲート $G 	o \{0, 1\}$ による初期状態の決定:
 $S_0 = G \cdot \text{Attention}(Q=p_{win}, K=X, V=X)$
 ここで、$G = 1 \text{ if } \max(Score) > \theta_{gate} \text{ else } 0$.
 
@@ -93,11 +114,11 @@ $S_{t+1} = (1 - \beta) S_t + \beta \Phi_k(S_t)$
 ### 3.4. Loss Function (Stability Loss)
 
 学習時の目的関数:
-$\mathcal{L} = \underbrace{|| S_{T} - S_{T-1} ||^2}_{\text{Stability}} + \lambda_1 \underbrace{\sum |S_T|}_{\text{Sparsity}} - \lambda_2 \underbrace{I(S_T; S_0)}_{\text{Info Retention}}$
+$\mathcal{L} = \underbrace{|| S_{T} - S_{T-1} ||^2}_{Stability} + \lambda_1 \underbrace{\sum |S_T|}_{Sparsity} - \lambda_2 \underbrace{I(S_T; S_0)}_{Info Retention}$
 
 -----
 
-## 4\. データ構造仕様 (Data Structures)
+## 4. データ構造仕様 (Data Structures)
 
 ### 4.1. Probe Log (Snapshot)
 
@@ -137,7 +158,7 @@ $\mathcal{L} = \underbrace{|| S_{T} - S_{T-1} ||^2}_{\text{Stability}} + \lambda
 
 -----
 
-## 5\. 処理フロー (Algorithm Flow)
+## 5. 処理フロー (Algorithm Flow)
 
 1.  **Input Buffer:** ストリームデータ $X$ をウィンドウサイズ $W$ で取得。
 2.  **Probe Scan:** 全プローブ $\mathbf{P}$ を $X$ に照射。
@@ -157,30 +178,109 @@ $\mathcal{L} = \underbrace{|| S_{T} - S_{T-1} ||^2}_{\text{Stability}} + \lambda
 
 -----
 
-## 6\. パラメータ設定推奨値 (Hyperparameters)
+## 6. パラメータ設定推奨値 (Hyperparameters)
 
-| Parameter | Symbol | Recommended Value | Description |
+コード内の `config` 辞書で使用されるキーと、推奨される設定値の分類。
+
+### モデル・アーキテクチャ (Model Architecture)
+| Key | Symbol | Recommended Value | Description |
 | :--- | :--- | :--- | :--- |
-| **Probe Count** | $K$ | 16 - 64 | 概念の分解能。多すぎると誤検知が増える。 |
-| **Gating Threshold** | $\theta$ | 0.3 - 0.5 | 妄想（ノイズ）を弾く強度。高いほど厳格。 |
-| **Softmax Temp** | $\tau$ | 0.1 - 0.2 | 低いほど「一境性（単一テーマ）」を選び取る。 |
-| **Max Refine Steps** | $T_{max}$ | 10 - 20 | 通常は5-10ステップで収束する設計とする。 |
-| **Convergence Epsilon**| $\epsilon$ | 1e-4 | 不動点とみなす変化量の閾値。 |
-| **Vicara Type** | - | `probe_specific` | `standard` (共有) か `probe_specific` (個別) か。 |
-| **Attention Mode** | - | `soft` / `hard` | 学習時は`soft`、推論時は`hard`を推奨。 |
+| **`dim`** | $d$ | 64 - 512 | 潜在状態ベクトルの次元数。表現力を決定する。 |
+| **`input_dim`** | $D_{input}$ | - | 入力データの次元 (MLPの場合: 特徴量数、LSTM/Transformerの場合: 各タイムステップの特徴量数)。 |
+| **`seq_len`** | $L$ | 10 - 60 | *(時系列モデルのみ)* 時系列シーケンスの長さ (スライディングウィンドウサイズ)。 |
+| **`n_probes`** | $K$ | 16 - 64 | 概念プローブの数。多すぎると誤検知が増える。 |
+| **`vicara_type`** | - | `"probe_specific"` | `"standard"` (共有) か `"probe_specific"` (個別) か。 |
+| **`probe_trainable`** | - | `True` | プローブ自体を学習により更新するかどうか。 |
+| **`adapter_hidden_dim`** | $D_{hidden}$ | 256 (MLP), 128 (LSTM/Transformer) | アダプター（エンコーダー）内の隠れ層の次元。 |
+| **`lstm_layers`** | $N_{lstm}$ | 1 - 3 | *(LstmSamadhiのみ)* LSTM層の数。 |
+| **`transformer_layers`** | $N_{trans}$ | 2 - 6 | *(TransformerSamadhiのみ)* Transformer Encoder層の数。 |
+| **`transformer_heads`** | $H$ | 4 - 8 | *(TransformerSamadhiのみ)* Multi-head Attentionのヘッド数。 |
+
+### Vitakka (Search)
+| Key | Symbol | Recommended Value | Description |
+| :--- | :--- | :--- | :--- |
+| **`gate_threshold`** | $\theta$ | 0.3 - 0.5 | 妄想（ノイズ）を弾く強度。高いほど厳格。 |
+| **`softmax_temp`** | $\tau$ | 0.1 - 0.2 | 低いほど「一境性（単一テーマ）」を選び取る。 |
+| **`mix_alpha`** | $\alpha_{mix}$ | 0.5 | 初期状態生成時の入力とプローブの混合比率。 |
+| **`training_attention_mode`** | - | `"soft"` / `"hard"` | 学習時は`"soft"`、推論時は`"hard"`が自動設定されることが多い。 |
+| **`prediction_attention_mode`** | - | `"hard"` | 推論時（`model.eval()`）にVitakkaが使用するアテンションモード。 |
+
+### Vicara (Refinement)
+| Key | Symbol | Recommended Value | Description |
+| :--- | :--- | :--- | :--- |
+| **`refine_steps`** | $T_{max}$ | 5 - 10 | フォワードパスごとの再帰的精製ステップ数。 |
+| **`inertia`** | $\beta$ | 0.7 | 状態更新の慣性。高いほど変化が滑らかになる。 |
+
+### Training (Loss Coefficients)
+| Key | Symbol | Recommended Value | Description |
+| :--- | :--- | :--- | :--- |
+| **`stability_coeff`** | $\lambda_{stab}$ | 0.01 | 状態の不動化（変化の抑制）を促す強さ。 |
+| **`entropy_coeff`** | $\lambda_{ent}$ | 0.1 | 曖昧な検索結果（迷い）を罰する強さ。 |
+| **`balance_coeff`** | $\lambda_{bal}$ | 0.001 | プローブの使用頻度を均一化し、特定の概念への偏りを防ぐ。 |
+| **`anomaly_margin`** | `5.0` | いいえ | *(AnomalyTrainerのみ)* 異常データの復元誤差がこれ以下の場合にペナルティを与えるマージン。高いほど厳しくなります。 |
+| **`anomaly_weight`** | `1.0` | いいえ | *(AnomalyTrainerのみ)* 異常データに対するマージン損失の重み。高いほど異常を遠ざける力が強まります。 |
 
 -----
 
-## 7\. 既存モデルとの比較 (Comparison)
+## 7. 既存モデルとの比較 (Comparison)
 
 | 特徴 | Transformer (GPT) | **Samadhi Model v2.3** |
 | :--- | :--- | :--- |
 | **基本動作** | 次トークンの予測 (発散) | 状態の純化・不動化 (収束) |
 | **時間依存性** | 履歴(Context Window)に依存 | 現在の状態(State)のみに依存 (Markov) |
 | **アテンション** | Self-Attention (Token間) | Recursive Attention (State-Probe間) |
-| **構造的特異性** | 全トークンで同一の重みを共有 | **概念ごとに異なる力学系 ($\Phi_k$) を保持可能** |
+| **構造的特異性** | 全トークンで同一の重みを共有 | **概念ごとに異なる力学系 ($\\Phi_k$) を保持可能** |
 | **推論コスト** | $O(N^2)$ (文脈長で増大) | $O(1)$ (定数・収束ステップ数のみ) |
 | **説明可能性** | 低い (Attention Mapのみ) | **極めて高い (Probe/Cetanā Log)** |
 | **哲学的基盤** | 連想・生成 | **禅定・洞察** |
 
 -----
+
+## 8. 応用と学習戦略 (Applications & Training Strategies)
+
+Samadhi Modelは、同一のアーキテクチャであっても、**学習戦略（Trainer）**と**デコーダー（Decoder）**の組み合わせにより、異なるタスクに適用可能である。
+
+| 応用タスク | Trainer Class | Decoder Role | 目的関数 (Loss) |
+| :--- | :--- | :--- | :--- |
+| **構造発見 / クラスタリング**<br>(Unsupervised) | `UnsupervisedSamadhiTrainer` | **None** / Identity | Stability + Entropy + Sparsity<br>(内部状態の安定化のみを追求) |
+| **異常検知 / ノイズ除去**<br>(Anomaly Detection) | `AnomalySamadhiTrainer` | **Reconstruction**<br>(Autoencoder) | Reconstruction Loss + Stability<br>(正常データの復元誤差最小化) |
+| **教師ありタスク**<br>(分類/回帰/ノイズ除去) | `SupervisedSamadhiTrainer` | **Classifier** / **Regressor** / **Reconstruction** | CrossEntropy / MSE / Reconstruction Loss + Stability<br>(ターゲット予測またはターゲット再構成) |
+
+*   **Meditation Mode (Unsupervised):** 外界の正解に頼らず、データ内在の構造（Dharma）を見出す。
+*   **Expression Mode (Supervised/Anomaly):** 見出した構造を利用して、外界のタスク（分類、検知）を解く。
+
+> **Note: 収束の重要性 (Significance of Convergence)**
+> 教師あり学習においても、デコーダーの出力（予測値）だけでなく、**「モデルが収束したかどうか（Stability Score）」**や**「収束までのステップ数」**自体が重要な指標となりうる。
+> *   **信頼度スコア:** 収束が速く、変化量が小さいほど、モデルはその入力に対して「確信（Confidence）」を持っていると解釈できる。
+> *   **OOD検知:** 既知のデータには強く収束するが、未知のデータ（Out-of-Distribution）には収束しない（あるいはGateが閉じる）という性質を利用し、予測の妥当性を検証できる。
+
+-----
+
+## 9. 大規模言語モデル (LLM) との連携 (Integration with LLMs)
+
+Samadhi Modelの持つ「収束・安定化」の特性と、LLMの持つ「生成・発散」の特性は、互いに補完的な関係にある。両者を組み合わせることで、従来のLLM単体では困難だったタスクを解決できる可能性がある。
+
+*   **LLM (Generator):** 発散的思考、トークン予測、文脈生成を担当。
+*   **Samadhi (Stabilizer):** 収束的思考、状態純化、意図の固定を担当。
+
+### 主な連携パターン
+
+1.  **意図・文脈の精緻化 (Intent Stabilization)**
+    *   **概要:** LLMが生成した粗い要約や意図をSamadhiに入力し、核となる概念に収束させる。その収束状態を再びLLMに戻すことで、ブレのない一貫した対話を実現する。
+    *   **役割:** 対話の軸を固定するアンカーとして機能。
+
+2.  **プロンプト強化 (Prompt Refinement)**
+    *   **概要:** ユーザーの入力をSamadhiで純化し、ノイズを除去した「概念ベクトル」としてLLMのプロンプト（またはEmbedding）に注入する。
+    *   **役割:** 曖昧な指示を明確化し、RAGのように生成をガイドする。
+
+3.  **LLMの生成の安定化・検証 (Output Verification)**
+    *   **概要:** LLMの生成物をSamadhiでチェックする。収束度（Stability Score）が低い場合、その出力は「支離滅裂」や「幻覚」である可能性が高いと判断し、再生成を促す。
+    *   **役割:** LLMの自己批評（Critic）および品質ゲートキーパー。
+
+4.  **構造化知識の抽出 (Knowledge Distillation)**
+    *   **概要:** LLMに大量のテキストを生成させ、Samadhiでその中から「最も強いシグナル」のみを抽出する。冗長な説明から本質的な骨子だけを取り出す要約タスクに有効。
+    *   **役割:** 情報の圧縮と本質抽出。
+
+5.  **マルチモーダル統合 (Multimodal Integration)**
+    *   **概要:** 画像、音声、時系列データなどをSamadhiで「安定した意味ベクトル」に変換し、それをLLMに入力して自然言語での解説を行わせる。
+    *   **役割:** 非言語データをLLMが理解可能な形式に翻訳するブリッジ。
