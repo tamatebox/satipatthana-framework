@@ -1,7 +1,7 @@
 # Samadhi Model (Deep Convergence Architecture) Specification
 
-**Version:** 2.2 (Citta-santāna Logic Implemented)
-**Status:** Final Draft
+**Version:** 2.3 (Probe-Specific Refinement Implemented)
+**Status:** Updated Draft
 
 -----
 
@@ -40,10 +40,18 @@
 
 **機能:** 外部入力を遮断し、内部状態を再帰的に純化する。
 
+**Architecture Variants (`vicara_type`):**
+  * **Standard Vicāra:** 単一の汎用Refiner ($\Phi$) を共有する。全ての概念に対して同じ純化ロジックを適用する。
+  * **Probe-Specific Vicāra (New in v2.3):** 各概念プローブ $p_k$ に対応する専用のRefiner ($\Phi_k$) を持つ。
+      * これにより、「呼吸の純化」と「痛みの純化」といった異なる概念に対して、それぞれ最適化された力学系を割り当てることが可能になる。
+      * `config["vicara_type"] = "probe_specific"` で有効化。
+
 1.  **Isolation:** $t > 0$ において、外部入力 $X$ へのゲートを閉じ、自己ループのみにする。
 2.  **Refinement Loop:**
-      * $S_{t+1} = \Phi(S_t)$
-      * $\Phi$: ノイズ除去と特徴強調を行う非線形写像（Autoencoder構造）。
+      * **Hard Attention Mode (Inference):** 勝者プローブに対応するRefiner $\Phi_{win}$ のみを適用する。
+          * $S_{t+1} = \Phi_{win}(S_t)$
+      * **Soft Attention Mode (Training):** 全プローブの確率分布に基づく重み付き和で更新する（勾配伝播のため）。
+          * $S_{t+1} = \sum_k w_k \Phi_k(S_t)$
 3.  **Convergence Check:**
       * 状態変化量 $||S_{t+1} - S_t||$ が $\epsilon$ 未満になった時点で「Appanā (没入)」とみなし、推論を終了する。
 
@@ -62,29 +70,30 @@
 
 入力 $X \in \mathbb{R}^{L \times d}$ に対するプローブ $p_k$ の共鳴スコア $R_k$:
 
-$$Score_k = || \frac{1}{\sqrt{d}} \sum_{i=1}^{L} \text{Softmax}(p_k^T x_i) \cdot x_i ||$$
+$Score_k = || \frac{1}{\sqrt{d}} \sum_{i=1}^{L} \text{Softmax}(p_k^T x_i) \cdot x_i ||$
 
 勝者決定と確率分布（側方抑制付き）:
-$$\hat{w} = \text{Softmax}\left( \frac{[Score_1, \dots, Score_K]}{\tau} \right)$$
+$\hat{w} = \text{Softmax}\left( \frac{[Score_1, \dots, Score_K]}{\tau} \right)$
 
 ### 3.2. Initialization ($S_0$)
 
 ゲート $G \in \{0, 1\}$ による初期状態の決定:
-$$S_0 = G \cdot \text{Attention}(Q=p_{win}, K=X, V=X)$$
+$S_0 = G \cdot \text{Attention}(Q=p_{win}, K=X, V=X)$
 ここで、$G = 1 \text{ if } \max(Score) > \theta_{gate} \text{ else } 0$.
 
 ### 3.3. Vicāra Phase (State Transition)
 
 1次マルコフ過程としての更新則:
-$$S_{t+1} = (1 - \beta) S_t + \beta \Phi(S_t)$$
+$S_{t+1} = (1 - \beta) S_t + \beta \Phi_k(S_t)$
 
   * $\beta$: 更新率（慣性項）。急激な変化を防ぎ、安定した軌道を描かせる。
+  * $\Phi_k$: 選択された概念 $k$ に固有の写像関数（Probe-Specificの場合）。
   * $\lim_{t \to \infty} || S_{t+1} - S_t || = 0$ (不動点への収束)
 
 ### 3.4. Loss Function (Stability Loss)
 
 学習時の目的関数:
-$$\mathcal{L} = \underbrace{|| S_{T} - S_{T-1} ||^2}_{\text{Stability}} + \lambda_1 \underbrace{\sum |S_T|}_{\text{Sparsity}} - \lambda_2 \underbrace{I(S_T; S_0)}_{\text{Info Retention}}$$
+$\mathcal{L} = \underbrace{|| S_{T} - S_{T-1} ||^2}_{\text{Stability}} + \lambda_1 \underbrace{\sum |S_T|}_{\text{Sparsity}} - \lambda_2 \underbrace{I(S_T; S_0)}_{\text{Info Retention}}$
 
 -----
 
@@ -157,16 +166,19 @@ $$\mathcal{L} = \underbrace{|| S_{T} - S_{T-1} ||^2}_{\text{Stability}} + \lambd
 | **Softmax Temp** | $\tau$ | 0.1 - 0.2 | 低いほど「一境性（単一テーマ）」を選び取る。 |
 | **Max Refine Steps** | $T_{max}$ | 10 - 20 | 通常は5-10ステップで収束する設計とする。 |
 | **Convergence Epsilon**| $\epsilon$ | 1e-4 | 不動点とみなす変化量の閾値。 |
+| **Vicara Type** | - | `probe_specific` | `standard` (共有) か `probe_specific` (個別) か。 |
+| **Attention Mode** | - | `soft` / `hard` | 学習時は`soft`、推論時は`hard`を推奨。 |
 
 -----
 
 ## 7\. 既存モデルとの比較 (Comparison)
 
-| 特徴 | Transformer (GPT) | **Samadhi Model v2.2** |
+| 特徴 | Transformer (GPT) | **Samadhi Model v2.3** |
 | :--- | :--- | :--- |
 | **基本動作** | 次トークンの予測 (発散) | 状態の純化・不動化 (収束) |
 | **時間依存性** | 履歴(Context Window)に依存 | 現在の状態(State)のみに依存 (Markov) |
 | **アテンション** | Self-Attention (Token間) | Recursive Attention (State-Probe間) |
+| **構造的特異性** | 全トークンで同一の重みを共有 | **概念ごとに異なる力学系 ($\Phi_k$) を保持可能** |
 | **推論コスト** | $O(N^2)$ (文脈長で増大) | $O(1)$ (定数・収束ステップ数のみ) |
 | **説明可能性** | 低い (Attention Mapのみ) | **極めて高い (Probe/Cetanā Log)** |
 | **哲学的基盤** | 連想・生成 | **禅定・洞察** |
