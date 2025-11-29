@@ -16,7 +16,9 @@ class AnomalySamadhiTrainer(BaseSamadhiTrainer):
     """
 
     def __init__(self, model, optimizer, **kwargs):
-        super().__init__(model, optimizer, **kwargs)
+        # Extract device from kwargs if present, otherwise None
+        device = kwargs.get("device")
+        super().__init__(model, optimizer, device=device)
         # Load hyperparams from config
         self.margin = self.model.config.get("anomaly_margin", 5.0)
         self.anomaly_weight = self.model.config.get("anomaly_weight", 1.0)

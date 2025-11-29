@@ -14,7 +14,7 @@ It engineeringly implements a vertical deepening of information (quiet insight) 
 
 ## 🧘 Concept & Philosophy
 
-Modern LLMs (Transformers) have a "divergent" nature, generating tokens one after another by riding the waves of probability distributions. In contrast, the **Samadhi Model** is a "convergent" model that transitions its state towards a dynamical system's attractor (fixed point).
+Modern LLMs (Transformers) have a "divergent" nature, generating tokens one after another by riding the waves of probability distributions. In contrast, the **Samadhi Model** is a "convergent" model that transitions its state towards a dynamical system\'s attractor (fixed point).
 
 It implements the process of meditative concentration (Samadhi) in Buddhist psychology as the following engineering modules:
 
@@ -59,7 +59,7 @@ It implements the process of meditative concentration (Samadhi) in Buddhist psyc
 │       ├── supervised_trainer.py
 │       ├── unsupervised_trainer.py
 │       └── anomaly_trainer.py      # Contrastive Margin Loss Trainer
-├── tests/              # Unit Tests (Contents not listed in provided structure)
+├── tests/              # Unit Tests (Contains unit and integration test scripts)
 ├── main.py             # Entry point
 └── pyproject.toml      # Project configuration (uv)
 ```
@@ -82,16 +82,21 @@ uv sync
 This is a minimal demo for extracting specific signals (intentions) from noisy waveforms.
 
 ```python
-from src.model.samadhi import SamadhiCore
-# Note: SamadhiCore is now an abstract base or part of specific implementations like MlpSamadhiModel
+from src.model.samadhi import SamadhiModel
+from src.model.mlp_samadhi import MlpSamadhiModel # Example of a specific implementation
 import torch
 
 # Configuration would be specific to the model type
-config = {"dim": 64, "n_probes": 5, "refine_steps": 5, "gate_threshold": 0.5}
-# ... (Initializing specific model like MlpSamadhiModel)
+config = {"input_dim": 10, "dim": 64, "n_probes": 5, "refine_steps": 5, "gate_threshold": 0.5}
+model = MlpSamadhiModel(config)
+
+# Example usage:
+input_data = torch.randn(1, config["input_dim"]) # Batch size 1
+purified_state, _ = model.forward_step(input_data, step_idx=0)
+print(f"Purified state shape: {purified_state.shape}")
 ```
 
-### 2. Run Experiments (Jupyter Notebooks)
+### 2. Run Demos (Jupyter Notebooks)
 
 For various experiments including visual demos, supervised/unsupervised training, and anomaly detection tasks (Credit Card Fraud, Sensor Failures), use the Jupyter Notebooks provided in `notebooks/`.
 
