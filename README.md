@@ -91,6 +91,8 @@ The Samadhi Framework utilizes a centralized logging system managed by `src/util
 
 ## ⚡ Quick Start
 
+> 📖 **For detailed instructions on model construction, training, and evaluation, please refer to the [Workflow Guide](docs/workflow_guide.md).**
+
 ### Prerequisites
 
 This project uses `uv` as its package manager.
