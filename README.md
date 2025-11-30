@@ -34,6 +34,7 @@ It implements the process of meditative concentration (Samadhi) in Buddhist psyc
 ## 🚀 Key Features
 
 *   **Modular Framework:** Easily swap Adapters (CNN, LSTM, MLP) and Decoders to fit any data modality.
+*   **Type-Safe Configuration:** Robust configuration management using Dataclasses and Enums for better validation and developer experience.
 *   **Objective-Driven Training:** Flexible training strategies (Autoencoder, Anomaly Detection, Supervised) by simply switching the `Objective` component.
 *   **Convergence:** The output is not a text stream, but a single "Purified State" with minimized entropy.
 *   **O(1) Inference:** Inference cost does not depend on the input length (Context Length), but only on the number of convergence steps (a constant).
@@ -61,6 +62,11 @@ The unique properties of the Samadhi Framework make it suitable for tasks requir
 ├── docs/               # Theoretical specifications and plans
 ├── notebooks/          # Experiments and Analysis (Jupyter)
 ├── src/
+│   ├── configs/        # Configuration System ([Details](src/configs/README.md))
+│   │   ├── main.py     # Root SamadhiConfig
+│   │   ├── factory.py  # Config Factories
+│   │   ├── adapters.py # Adapter Configs
+│   │   └── ...
 │   ├── components/     # Modularized Components ([Details](src/components/README.md))
 │   │   ├── adapters/   # Input Adapters (MLP, CNN, LSTM, Transformer)
 │   │   ├── decoders/   # Output Decoders
@@ -96,27 +102,33 @@ uv sync
 
 ### 1. Basic Usage (Using Presets)
 
-Easily create a model for your data type using presets.
+Easily create a model for your data type using presets. Configuration can be passed as a dictionary (automatically converted) or a `SamadhiConfig` object.
 
 ```python
 import torch
 from src.presets.tabular import create_mlp_samadhi
+from src.configs.main import SamadhiConfig
 
-# Configuration
-config = {
-    "input_dim": 10,
+# Configuration (Dictionary)
+config_dict = {
     "dim": 64,
-    "output_dim": 10,
-    "n_probes": 5,
-    "refine_steps": 5,
-    "gate_threshold": 0.5
+    "adapter": {"type": "mlp", "input_dim": 10},
+    "decoder": {"type": "reconstruction", "input_dim": 10},
+    "vitakka": {"n_probes": 5, "gate_threshold": 0.5},
+    "vicara": {"refine_steps": 5},
+    "objective": {"stability_coeff": 0.01, "entropy_coeff": 0.1, "balance_coeff": 0.001}
 }
 
-# Create a tabular model (formerly MlpSamadhiModel)
-model = create_mlp_samadhi(config)
+# Create a tabular model
+# The dictionary is automatically converted to SamadhiConfig internally
+model = create_mlp_samadhi(config_dict)
+
+# Or using SamadhiConfig directly for type safety
+# config = SamadhiConfig.from_dict(config_dict)
+# model = create_mlp_samadhi(config)
 
 # Inference
-input_data = torch.randn(1, config["input_dim"])
+input_data = torch.randn(1, 10)
 output, s_final, meta = model(input_data)
 
 print(f"Purified state shape: {s_final.shape}")
@@ -129,16 +141,26 @@ Build a custom model by mixing and matching components.
 
 ```python
 from src.core.builder import SamadhiBuilder
-from src.components.adapters.vision import CnnAdapter
-from src.components.decoders.vision import CnnDecoder
+from src.configs.main import SamadhiConfig
+from src.configs.enums import AdapterType, DecoderType
+from src.configs.objectives import ObjectiveConfig
 
-config = {"dim": 32, "channels": 3, "img_size": 32, "n_probes": 5}
+# Load config
+config_data = {
+    "dim": 32, 
+    "adapter": {"type": AdapterType.CNN.value, "channels": 3, "img_size": 32},
+    "decoder": {"type": DecoderType.CNN.value, "channels": 3, "img_size": 32, "input_dim": 32*32*3}, # input_dim needed for linear layer before deconv
+    "vitakka": {"n_probes": 5},
+    "objective": {"stability_coeff": 0.05, "anomaly_margin": 5.0}
+}
+config = SamadhiConfig.from_dict(config_data)
 
-model = SamadhiBuilder(config)
-    .set_adapter(CnnAdapter(config))
-    .set_vitakka()
-    .set_vicara(refiner_type="mlp")
-    .set_decoder(CnnDecoder(config))
+# Builder uses the config to instantiate appropriate components
+model = SamadhiBuilder(config) \
+    .set_adapter(type=AdapterType.CNN.value) \
+    .set_vitakka() \
+    .set_vicara(refiner_type="mlp") \
+    .set_decoder(type=DecoderType.CNN.value) \
     .build()
 ```
 
@@ -149,7 +171,9 @@ Train the model using the Hugging Face compatible Trainer and pluggable Objectiv
 ```python
 from src.train import SamadhiTrainer
 from src.train.objectives.unsupervised import UnsupervisedObjective
+from src.configs.main import SamadhiConfig
 
+# Assuming 'config' is a SamadhiConfig object created previously
 # Define Objective (e.g., Unsupervised Learning: Reconstruction + Stability)
 objective = UnsupervisedObjective(config)
 
@@ -186,7 +210,8 @@ trainer.train()
 *   [x] **v2.3:** Gating & Meta-Cognition (Sati Implemented)
 *   [x] **v2.4:** Anomaly Detection & Time Series Support
 *   [x] **v3.0:** **Framework Refactoring** (Modularization, Builder, HF Trainer)
-*   [ ] **v3.1:** NLP Implementation (Text Summarization/Concept Extraction)
+*   [x] **v3.1:** **Configuration Refactoring** (Type-Safe Configs, Factory Pattern)
+*   [ ] **v3.2:** NLP Implementation (Text Summarization/Concept Extraction)
 *   [ ] **Future:** Multi-Agent Samadhi (Dialogue of Insight)
 
 -----

@@ -16,22 +16,39 @@ This directory contains the modular components that make up the Samadhi Model. T
 
 To extend the framework, create a new class inheriting from the appropriate Base class.
 
+**Crucially, when adding new components, you must also define their corresponding configuration dataclass within the `src/configs/` directory.**
+
 ### 1. Adapters (Input)
 Create a file in `src/components/adapters/`.
 
 ```python
 from src.components.adapters.base import BaseAdapter
 import torch
+from src.configs.adapters import MyCustomAdapterConfig # Import your config
 
 class MyCustomAdapter(BaseAdapter):
-    def __init__(self, config):
+    # Type hint with your specific config class
+    def __init__(self, config: MyCustomAdapterConfig):
         super().__init__(config)
-        # Initialize your layers here
-        # self.net = ...
+        # Initialize your layers here, accessing config via dot notation:
+        # self.net = nn.Linear(self.config.input_dim, self.config.dim)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # Transform x (Batch, InputDim) -> z (Batch, LatentDim)
         return self.net(x)
+```
+
+**Corresponding Configuration (`src/configs/adapters.py` example):**
+
+```python
+from dataclasses import dataclass
+from src.configs.base import BaseConfig
+from src.configs.enums import AdapterType
+
+@dataclass
+class MyCustomAdapterConfig(BaseAdapterConfig):
+    type: AdapterType = AdapterType.MY_CUSTOM_TYPE # Define new enum in enums.py
+    my_custom_param: int = 100
 ```
 
 ### 2. Decoders (Output)
@@ -40,9 +57,10 @@ Create a file in `src/components/decoders/`.
 ```python
 from src.components.decoders.base import BaseDecoder
 import torch
+from src.configs.decoders import MyCustomDecoderConfig
 
 class MyCustomDecoder(BaseDecoder):
-    def __init__(self, config):
+    def __init__(self, config: MyCustomDecoderConfig):
         super().__init__(config)
         # Initialize your layers here
 
@@ -57,9 +75,11 @@ Refiners are the "brains" inside the Vicara loop. Create a file in `src/componen
 ```python
 from src.components.refiners.base import BaseRefiner
 import torch
+# Refiners typically use a general BaseConfig or VicaraConfig for shared params like 'dim'
+from src.configs.base import BaseConfig 
 
 class MyCustomRefiner(BaseRefiner):
-    def __init__(self, config):
+    def __init__(self, config: BaseConfig):
         super().__init__(config)
         # Define the transformation logic
 
@@ -75,9 +95,10 @@ If you need a new way to initialize the state (e.g., different attention mechani
 ```python
 from src.components.vitakka.base import BaseVitakka
 import torch
+from src.configs.vitakka import MyVitakkaConfig
 
 class MyVitakka(BaseVitakka):
-    def __init__(self, config):
+    def __init__(self, config: MyVitakkaConfig):
         super().__init__(config)
         # self.probes is already initialized by BaseVitakka
 
@@ -93,8 +114,13 @@ If you need to change *how* the refinement loop works (though usually, just chan
 ```python
 from src.components.vicara.base import BaseVicara
 import torch
+from src.configs.vicara import MyVicaraConfig
 
 class MyVicara(BaseVicara):
+    def __init__(self, config: MyVicaraConfig, refiners):
+        super().__init__(config, refiners)
+        # ...
+
     def _refine_step(self, s_t: torch.Tensor, context) -> torch.Tensor:
         # Implement a single step of purification
         # Typically calls self.refiners
@@ -102,19 +128,14 @@ class MyVicara(BaseVicara):
         pass
 ```
 
-## Integration
+## Integration into the Framework
 
-After creating your component, you can use it in two ways:
+After creating your component and its corresponding configuration, follow these steps to integrate it:
 
-1.  **Direct Builder Usage**: Pass the instance to `SamadhiBuilder`.
-    ```python
-    adapter = MyCustomAdapter(config)
-    builder = SamadhiBuilder(config)
-    builder.set_adapter(adapter)
-    model = builder.build()
-    ```
-
-2.  **Preset Creation**: Create a new factory function in `src/presets/` that instantiates your new component.
+1.  **Update `src/configs/enums.py`**: Add a new member to the relevant `Enum` (e.g., `AdapterType`) for your new component type.
+2.  **Update `src/configs/factory.py`**: Modify the appropriate `create_*_config` function (e.g., `create_adapter_config`) to include logic for instantiating your new configuration dataclass based on its `type`.
+3.  **Update `src/core/builder.py`**: If your component is directly settable via the `SamadhiBuilder` (like Adapter, Vitakka, Vicara, Decoder), update the relevant `set_*` method to instantiate your component using its new configuration.
+4.  **Preset Creation (Optional)**: Create a new factory function in `src/presets/` that instantiates your new component as part of a predefined model configuration.
 
 ## Testing New Components
 
