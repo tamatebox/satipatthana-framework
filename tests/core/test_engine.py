@@ -143,3 +143,52 @@ def test_samadhi_engine_compute_dynamics(basic_config, mock_components):
     dynamics_shift = engine._compute_dynamics(current_log_shift)
     assert dynamics_shift["type"] == "Shift"
     assert dynamics_shift["confidence_delta"] == pytest.approx(-0.1)
+
+
+def test_samadhi_engine_forward_skip_vitakka(basic_config, mock_components):
+    adapter, vitakka, vicara, decoder = mock_components
+    engine = SamadhiEngine(adapter, vitakka, vicara, decoder, basic_config)
+
+    batch_size = 2
+    input_tensor = torch.randn(batch_size, basic_config["input_dim"])
+
+    # Skip Vitakka (run_vitakka=False)
+    # Vicara runs on adapter output directly
+    output, s_final, meta = engine.forward(input_tensor, run_vitakka=False, run_vicara=True)
+
+    assert output.shape == (batch_size, basic_config["output_dim"])
+    assert s_final.shape == (batch_size, basic_config["dim"])
+    assert meta == {}  # Expect empty meta since Vitakka was skipped
+
+
+def test_samadhi_engine_forward_skip_vicara(basic_config, mock_components):
+    adapter, vitakka, vicara, decoder = mock_components
+    engine = SamadhiEngine(adapter, vitakka, vicara, decoder, basic_config)
+
+    batch_size = 2
+    input_tensor = torch.randn(batch_size, basic_config["input_dim"])
+
+    # Skip Vicara (run_vicara=False)
+    # s_final should be the same as s0 (Vitakka output)
+    # Since we can't easily capture intermediate s0 without mocking internal call,
+    # we verify output shape and meta existence.
+    output, s_final, meta = engine.forward(input_tensor, run_vitakka=True, run_vicara=False)
+
+    assert output.shape == (batch_size, basic_config["output_dim"])
+    assert s_final.shape == (batch_size, basic_config["dim"])
+    assert "winner_id" in meta
+
+
+def test_samadhi_engine_forward_skip_both(basic_config, mock_components):
+    adapter, vitakka, vicara, decoder = mock_components
+    engine = SamadhiEngine(adapter, vitakka, vicara, decoder, basic_config)
+
+    batch_size = 2
+    input_tensor = torch.randn(batch_size, basic_config["input_dim"])
+
+    # Skip Both (Autoencoder mode)
+    output, s_final, meta = engine.forward(input_tensor, run_vitakka=False, run_vicara=False)
+
+    assert output.shape == (batch_size, basic_config["output_dim"])
+    assert s_final.shape == (batch_size, basic_config["dim"])
+    assert meta == {}
