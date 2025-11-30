@@ -88,13 +88,14 @@ class AnomalyObjective(UnsupervisedObjective):
         balance_loss = self._compute_load_balance_loss(probs)
 
         # Get coefficients from Config
+        recon_coeff = self.config.objective.recon_coeff
         stability_coeff = self.config.objective.stability_coeff
         entropy_coeff = self.config.objective.entropy_coeff
         balance_coeff = self.config.objective.balance_coeff
 
         # Total Loss
         total_loss = (
-            recon_loss_combined
+            (recon_coeff * recon_loss_combined)
             + (stability_coeff * batch_stability_loss)
             + (entropy_coeff * entropy_loss)
             + (balance_coeff * balance_loss)

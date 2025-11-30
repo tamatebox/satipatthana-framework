@@ -34,7 +34,8 @@ class AutoencoderObjective(BaseObjective):
         # and decoded_s_final is the result of decoding it. The target is the original input x.
         recon_loss = self.recon_loss_fn(decoded_s_final, x)
 
-        total_loss = recon_loss
+        recon_coeff = self.config.objective.recon_coeff
+        total_loss = recon_coeff * recon_loss
 
         loss_components = {
             "total_loss": total_loss.item(),
