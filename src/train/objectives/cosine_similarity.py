@@ -5,31 +5,42 @@ from src.train.objectives.base_objective import BaseObjective
 from src.configs.main import SamadhiConfig
 
 
-class UnsupervisedObjective(BaseObjective):
+class CosineSimilarityObjective(BaseObjective):
     """
-    Unsupervised objective for Samadhi Model, typically using MSE for reconstruction
-    against the input itself. Incorporates reconstruction, stability, entropy, and
-    load balancing losses.
+    Unsupervised objective that maximizes Cosine Similarity between input and reconstruction.
+    Suitable for learning semantic alignment/direction rather than exact magnitude.
+
+    Loss = CosineEmbeddingLoss(x, decoded, target=1) + Stability + Entropy + Balance
     """
 
     def __init__(self, config: SamadhiConfig, device: Optional[str] = None):
         if isinstance(config, dict):
             config = SamadhiConfig.from_dict(config)
         super().__init__(config, device)
-        self.recon_loss_fn = nn.MSELoss()
+        self.loss_fn = nn.CosineEmbeddingLoss()
 
     def compute_loss(
         self,
         x: torch.Tensor,
-        y: Optional[torch.Tensor],  # y is ignored in unsupervised learning
+        y: Optional[torch.Tensor],  # Ignored
         s0: torch.Tensor,
         s_final: torch.Tensor,
         decoded_s_final: torch.Tensor,
         metadata: Dict[str, Any],
         num_refine_steps: int,
     ) -> Tuple[torch.Tensor, Dict[str, Any]]:
-        # 1. Reconstruction Loss (x is the target)
-        recon_loss = self.recon_loss_fn(decoded_s_final, x)
+
+        # 1. Cosine Embedding Loss
+        # We want x and decoded_s_final to be similar (target=1)
+        # Input to CosineEmbeddingLoss requires flattened vectors if they are multidimensional images
+        # But typically used for vectors. If x is (B, D), it works directly.
+        # If x is (B, C, H, W), we should flatten.
+
+        x_flat = x.view(x.size(0), -1)
+        decoded_flat = decoded_s_final.view(decoded_s_final.size(0), -1)
+
+        target = torch.ones(x.size(0), device=self.device)
+        cosine_loss = self.loss_fn(decoded_flat, x_flat, target)
 
         # 2. Stability Loss
         batch_stability_loss = self._compute_stability_loss(metadata, len(x), num_refine_steps)
@@ -41,14 +52,14 @@ class UnsupervisedObjective(BaseObjective):
         # 4. Load Balancing Loss
         balance_loss = self._compute_load_balance_loss(probs)
 
-        # Get coefficients from Config
+        # Coefficients
         recon_coeff = self.config.objective.recon_coeff
         stability_coeff = self.config.objective.stability_coeff
         entropy_coeff = self.config.objective.entropy_coeff
         balance_coeff = self.config.objective.balance_coeff
 
         total_loss = (
-            (recon_coeff * recon_loss)
+            (recon_coeff * cosine_loss)
             + (stability_coeff * batch_stability_loss)
             + (entropy_coeff * entropy_loss)
             + (balance_coeff * balance_loss)
@@ -56,7 +67,7 @@ class UnsupervisedObjective(BaseObjective):
 
         loss_components = {
             "total_loss": total_loss.item(),
-            "recon_loss": recon_loss.item(),
+            "cosine_loss": cosine_loss.item(),
             "stability_loss": batch_stability_loss.item(),
             "entropy_loss": entropy_loss.item(),
             "balance_loss": balance_loss.item(),

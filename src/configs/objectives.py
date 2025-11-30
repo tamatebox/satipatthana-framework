@@ -12,5 +12,6 @@ class ObjectiveConfig(BaseConfig):
     entropy_coeff: float = 0.1
     balance_coeff: float = 0.001
     recon_coeff: float = 1.0
+    huber_delta: float = 1.0
     anomaly_margin: float = 5.0
     anomaly_weight: float = 1.0

@@ -60,6 +60,22 @@ class BaseObjective(ABC):
         else:
             return balance_loss
 
+    def _compute_stability_loss(
+        self, metadata: Dict[str, Any], batch_size: int, num_refine_steps: int
+    ) -> torch.Tensor:
+        """
+        Computes Stability Loss based on state history.
+        """
+        batch_stability_loss = torch.tensor(0.0, device=self.device)
+        if num_refine_steps > 0 and "s_history" in metadata:
+            s_history = metadata["s_history"]
+            # s_history is a list of tensors of shape (Batch, Dim)
+            if len(s_history) > 1:
+                for i in range(1, len(s_history)):
+                    batch_stability_loss += torch.norm(s_history[i] - s_history[i - 1], p=2, dim=1).sum()
+                batch_stability_loss = batch_stability_loss / (batch_size * num_refine_steps)
+        return batch_stability_loss
+
     @abstractmethod
     def compute_loss(
         self,

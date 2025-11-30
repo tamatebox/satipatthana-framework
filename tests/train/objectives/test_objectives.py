@@ -4,6 +4,9 @@ import torch.nn as nn
 from src.train.objectives.supervised_regression import SupervisedRegressionObjective
 from src.train.objectives.unsupervised import UnsupervisedObjective
 from src.train.objectives.anomaly import AnomalyObjective
+from src.train.objectives.supervised_classification import SupervisedClassificationObjective
+from src.train.objectives.robust_regression import RobustRegressionObjective
+from src.train.objectives.cosine_similarity import CosineSimilarityObjective
 
 
 @pytest.fixture
@@ -17,6 +20,8 @@ def anomaly_mock_config():
             "balance_coeff": 0.1,
             "anomaly_margin": 1.0,  # Specific margin for testing
             "anomaly_weight": 2.0,  # Specific weight for testing
+            "recon_coeff": 1.0,
+            "huber_delta": 1.0,
         }
     )
     return MockConfig(
@@ -194,6 +199,66 @@ def test_supervised_regression_objective(mock_config, dummy_data):
     assert "stability_loss" in components
     assert "entropy_loss" in components
     assert "balance_loss" in components
+
+
+def test_supervised_classification_objective(mock_config, dummy_data):
+    x, _, s0, s_final, _, metadata = dummy_data
+    # Re-mock y and decoded_s_final for classification
+    # decoded_s_final: (Batch, NumClasses) -> Logits. Let's say 2 classes.
+    decoded_s_final_cls = torch.randn(x.size(0), 2)
+    # y: (Batch,) -> Class Indices (0 or 1)
+    y_cls = torch.randint(0, 2, (x.size(0),))
+
+    objective = SupervisedClassificationObjective(mock_config)
+
+    loss, components = objective.compute_loss(x, y_cls, s0, s_final, decoded_s_final_cls, metadata, num_refine_steps=2)
+
+    assert isinstance(loss, torch.Tensor)
+    assert "total_loss" in components
+    assert "classification_loss" in components
+    assert "stability_loss" in components
+
+
+def test_cosine_similarity_objective(mock_config, dummy_data):
+    objective = CosineSimilarityObjective(mock_config, device="cpu")
+    x, y, s0, s_final, decoded, metadata = dummy_data
+
+    total_loss, components = objective.compute_loss(
+        x=x,
+        y=y,
+        s0=s0,
+        s_final=s_final,
+        decoded_s_final=decoded,
+        metadata=metadata,
+        num_refine_steps=mock_config.refine_steps,
+    )
+
+    assert isinstance(total_loss, torch.Tensor)
+    assert "cosine_loss" in components
+    # CosineEmbeddingLoss output is usually small positive float if vectors are not identical
+    assert components["cosine_loss"] >= 0
+
+
+def test_robust_regression_objective(mock_config, dummy_data):
+    # Mock huber_delta in config
+    mock_config.huber_delta = 1.0
+
+    objective = RobustRegressionObjective(mock_config, device="cpu")
+    x, y, s0, s_final, decoded, metadata = dummy_data
+
+    total_loss, components = objective.compute_loss(
+        x=x,
+        y=y,
+        s0=s0,
+        s_final=s_final,
+        decoded_s_final=decoded,
+        metadata=metadata,
+        num_refine_steps=mock_config.refine_steps,
+    )
+
+    assert isinstance(total_loss, torch.Tensor)
+    assert "robust_loss" in components
+    assert components["robust_loss"] >= 0
 
 
 def test_supervised_regression_objective_no_target(mock_config, dummy_data):

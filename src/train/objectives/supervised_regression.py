@@ -34,12 +34,7 @@ class SupervisedRegressionObjective(BaseObjective):
         recon_loss = self.recon_loss_fn(decoded_s_final, y)
 
         # 2. Stability Loss
-        batch_stability_loss = torch.tensor(0.0, device=self.device)
-        if num_refine_steps > 0 and "s_history" in metadata:
-            s_history = metadata["s_history"]  # List of (Batch, Dim) tensors
-            for i in range(1, len(s_history)):
-                batch_stability_loss += torch.norm(s_history[i] - s_history[i - 1], p=2, dim=1).sum()
-            batch_stability_loss = batch_stability_loss / (len(x) * num_refine_steps)
+        batch_stability_loss = self._compute_stability_loss(metadata, len(x), num_refine_steps)
 
         # 3. Entropy Loss
         probs = metadata["probs"]
