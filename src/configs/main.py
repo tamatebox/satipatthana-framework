@@ -6,11 +6,13 @@ from src.configs.adapters import BaseAdapterConfig, MlpAdapterConfig
 from src.configs.vicara import BaseVicaraConfig, StandardVicaraConfig
 from src.configs.vitakka import BaseVitakkaConfig, StandardVitakkaConfig
 from src.configs.decoders import BaseDecoderConfig, ReconstructionDecoderConfig
+from src.configs.objectives import ObjectiveConfig
 from src.configs.factory import (
     create_adapter_config,
     create_vicara_config,
     create_vitakka_config,
     create_decoder_config,
+    create_objective_config,
 )
 
 
@@ -25,17 +27,13 @@ class SamadhiConfig(BaseConfig):
     seed: int = 42
     labels: list = field(default_factory=list)  # Probe labels for logging
 
-    # Objective coefficients
-    stability_coeff: float = 0.01
-    entropy_coeff: float = 0.1
-    balance_coeff: float = 0.001
-
     # --- Nested Component Configs ---
     # Defaulting to standard MLP/Reconstruction setup
     adapter: BaseAdapterConfig = field(default_factory=MlpAdapterConfig)
     vitakka: BaseVitakkaConfig = field(default_factory=StandardVitakkaConfig)
     vicara: BaseVicaraConfig = field(default_factory=StandardVicaraConfig)
     decoder: BaseDecoderConfig = field(default_factory=ReconstructionDecoderConfig)
+    objective: ObjectiveConfig = field(default_factory=ObjectiveConfig)
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "SamadhiConfig":
@@ -80,6 +78,9 @@ class SamadhiConfig(BaseConfig):
                         decoder_data["dim"] = global_dim
                     config_args[k] = create_decoder_config(decoder_data)
 
+                elif k == "objective" and isinstance(data[k], dict):
+                    config_args[k] = create_objective_config(data[k])
+
                 else:
                     # Scalar values (dim, seed) or already Config objects
                     config_args[k] = data[k]
@@ -95,6 +96,9 @@ class SamadhiConfig(BaseConfig):
                 config_args[k] = create_vicara_config(data)
             elif k == "decoder":
                 config_args[k] = create_decoder_config(data)
+            elif k == "objective":
+                # For objective, we pass the whole flat data, factory will extract relevant keys
+                config_args[k] = create_objective_config(data)
 
         return cls(**config_args)
 

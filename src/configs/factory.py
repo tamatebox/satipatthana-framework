@@ -16,6 +16,7 @@ from src.configs.decoders import (
     LstmDecoderConfig,
     SimpleSequenceDecoderConfig,
 )
+from src.configs.objectives import ObjectiveConfig
 
 
 def _is_valid_type(type_val: Any, enum_cls: Any) -> bool:
@@ -90,12 +91,6 @@ def create_vicara_config(data: Dict[str, Any]) -> BaseVicaraConfig:
 
 def create_vitakka_config(data: Dict[str, Any]) -> BaseVitakkaConfig:
     """Creates a VitakkaConfig."""
-    # Currently only StandardVitakka exists, assume standard type if anything else passed
-    # Clean type to avoid polluting config with unrelated type string
-    # Vitakka config doesn't have a 'type' field currently (it's BaseVitakkaConfig subclass but StandardVitakkaConfig doesn't override type enum?)
-    # Checking components.py: StandardVitakkaConfig doesn't have type field defined in dataclass, BaseVitakkaConfig doesn't either.
-    # So 'type' in data would be ignored by from_dict anyway if not in fields.
-    # But let's be safe.
     return StandardVitakkaConfig.from_dict(data)
 
 
@@ -134,3 +129,8 @@ def create_decoder_config(data: Dict[str, Any]) -> BaseDecoderConfig:
         if "decoder_hidden_dim" not in clean_data and "adapter_hidden_dim" in clean_data:
             clean_data["decoder_hidden_dim"] = clean_data["adapter_hidden_dim"]
         return ReconstructionDecoderConfig.from_dict(clean_data)
+
+
+def create_objective_config(data: Dict[str, Any]) -> ObjectiveConfig:
+    """Creates an ObjectiveConfig."""
+    return ObjectiveConfig.from_dict(data)

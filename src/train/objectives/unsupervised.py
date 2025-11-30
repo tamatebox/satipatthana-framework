@@ -47,9 +47,9 @@ class UnsupervisedObjective(BaseObjective):
         balance_loss = self._compute_load_balance_loss(probs)
 
         # Get coefficients from Config
-        stability_coeff = self.config.stability_coeff  # Changed config access
-        entropy_coeff = self.config.entropy_coeff  # Changed config access
-        balance_coeff = self.config.balance_coeff  # Changed config access
+        stability_coeff = self.config.objective.stability_coeff
+        entropy_coeff = self.config.objective.entropy_coeff
+        balance_coeff = self.config.objective.balance_coeff
 
         total_loss = (
             recon_loss
