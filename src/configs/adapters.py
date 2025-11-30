@@ -3,7 +3,7 @@ from src.configs.base import BaseConfig
 from src.configs.enums import AdapterType
 
 
-@dataclass
+@dataclass(kw_only=True)
 class BaseAdapterConfig(BaseConfig):
     dim: int = 64
     type: AdapterType = AdapterType.MLP
@@ -14,18 +14,18 @@ class BaseAdapterConfig(BaseConfig):
             raise ValueError(f"Dropout must be between 0 and 1, got {self.dropout}")
 
 
-@dataclass
+@dataclass(kw_only=True)
 class MlpAdapterConfig(BaseAdapterConfig):
     type: AdapterType = AdapterType.MLP
-    input_dim: int = 10
+    input_dim: int  # Mandatory
     adapter_hidden_dim: int = 256
 
 
-@dataclass
+@dataclass(kw_only=True)
 class CnnAdapterConfig(BaseAdapterConfig):
     type: AdapterType = AdapterType.CNN
-    channels: int = 3
-    img_size: int = 32
+    channels: int  # Mandatory
+    img_size: int  # Mandatory
 
     def validate(self):
         super().validate()
@@ -33,20 +33,20 @@ class CnnAdapterConfig(BaseAdapterConfig):
             raise ValueError(f"img_size must be positive, got {self.img_size}")
 
 
-@dataclass
+@dataclass(kw_only=True)
 class LstmAdapterConfig(BaseAdapterConfig):
     type: AdapterType = AdapterType.LSTM
-    input_dim: int = 10
-    seq_len: int = 50
+    input_dim: int  # Mandatory
+    seq_len: int  # Mandatory
     adapter_hidden_dim: int = 128
     lstm_layers: int = 1
 
 
-@dataclass
+@dataclass(kw_only=True)
 class TransformerAdapterConfig(BaseAdapterConfig):
     type: AdapterType = AdapterType.TRANSFORMER
-    input_dim: int = 10
-    seq_len: int = 50
+    input_dim: int  # Mandatory
+    seq_len: int  # Mandatory
     adapter_hidden_dim: int = 128
     transformer_layers: int = 2
     transformer_heads: int = 4
