@@ -1,4 +1,4 @@
-# Samadhi Model (Deep Convergence Architecture)
+# Samadhi Framework (Deep Convergence Architecture)
 
 > **"From Generation to Convergence."**
 
@@ -6,15 +6,17 @@
 ![Python](https://img.shields.io/badge/Python-3.12%2B-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
-**Samadhi Model** is a novel **recursive attention architecture** designed not for traditional "sequence prediction (Next Token Prediction)" seen in generative AI, but for "extracting the essential structure" and "stabilizing the internal state" of the subject.
+**Samadhi Framework** is a modular **recursive attention architecture** designed not for traditional "sequence prediction (Next Token Prediction)" seen in generative AI, but for "extracting the essential structure" and "stabilizing the internal state" of the subject.
 
 It engineeringly implements a vertical deepening of information (quiet insight) rather than horizontal expansion (talkative generation).
+
+Now evolved into a **Meta-Framework**, it allows you to compose **Adapters** (Input), **Vitakka** (Search), **Vicāra** (Refinement), and **Decoders** (Output) to apply this convergence philosophy to any domain—Tabular, Vision, Time Series, and NLP.
 
 ---
 
 ## 🧘 Concept & Philosophy
 
-Modern LLMs (Transformers) have a "divergent" nature, generating tokens one after another by riding the waves of probability distributions. In contrast, the **Samadhi Model** is a "convergent" model that transitions its state towards a dynamical system\'s attractor (fixed point).
+Modern LLMs (Transformers) have a "divergent" nature, generating tokens one after another by riding the waves of probability distributions. In contrast, **Samadhi** is a "convergent" engine that transitions its state towards a dynamical system's attractor (fixed point).
 
 It implements the process of meditative concentration (Samadhi) in Buddhist psychology as the following engineering modules:
 
@@ -31,23 +33,23 @@ It implements the process of meditative concentration (Samadhi) in Buddhist psyc
 
 ## 🚀 Key Features
 
+*   **Modular Framework:** Easily swap Adapters (CNN, LSTM, MLP) and Decoders to fit any data modality.
+*   **Objective-Driven Training:** Flexible training strategies (Autoencoder, Anomaly Detection, Supervised) by simply switching the `Objective` component.
 *   **Convergence:** The output is not a text stream, but a single "Purified State" with minimized entropy.
 *   **O(1) Inference:** Inference cost does not depend on the input length (Context Length), but only on the number of convergence steps (a constant).
-*   **Noise Robustness:** The powerful Gating mechanism returns "silence" for meaningless inputs (distractions) without allocating computational resources.
 *   **Explainability (XAI):** "Why a particular subject was focused on" and "how concentration deepened" are fully visualized as logs.
 
 ---
 
 ## 🌟 Potential Applications
 
-The unique properties of the Samadhi Model make it suitable for tasks requiring deep insight and state stability rather than simple generation.
+The unique properties of the Samadhi Framework make it suitable for tasks requiring deep insight and state stability rather than simple generation.
 
-1.  **Biosignal Analysis (Healthcare):** Extract stable physiological states (e.g., stress levels, cognitive load) from noisy EEG or heart rate data, filtering out artifacts.
-2.  **Anomaly Detection (Forensics):** Identify "essential anomalies" in financial transactions or machine logs by converging normal patterns and detecting deviations (gating out noise).
+1.  **Biosignal Analysis (Healthcare):** Extract stable physiological states (e.g., stress levels, cognitive load) from noisy EEG or heart rate data.
+2.  **Anomaly Detection (Forensics):** Identify "essential anomalies" in financial transactions or machine logs by converging normal patterns and detecting deviations.
 3.  **Human Intent Analysis (UX/Psychology):** Capture deep user intent or emotional shifts from interactions, beyond surface-level keywords.
 4.  **Autonomous Agents (Robotics):** Enable stable decision-making in chaotic environments by converging sensory inputs into clear actionable states.
-5.  **Creative Assistance (Structure Extraction):** Distill core concepts or themes from multiple creative drafts to maintain stylistic consistency.
-6.  **LLM Integration (Refinement & Verification):** Enhance Large Language Models by stabilizing their intent, refining prompts, and verifying generated outputs to reduce hallucinations and improve coherence.
+5.  **Creative Assistance (Structure Extraction):** Distill core concepts or themes from multiple creative drafts.
 
 ---
 
@@ -55,26 +57,23 @@ The unique properties of the Samadhi Model make it suitable for tasks requiring 
 
 ```bash
 .
-├── data/               # MNIST, Sensor, Credit Card datasets
-├── docs/               # Theoretical specifications
-├── notebooks/          # Experiments and Analysis
-│   ├── fraud_detection.ipynb             # Tabular Anomaly Detection (Credit Card)
-│   ├── time_series_anomaly_detection.ipynb # Time Series Anomaly Detection (Sensor)
-│   └── mnist.ipynb                         # Visual Samadhi Demo
+├── data/               # Datasets
+├── docs/               # Theoretical specifications and plans
+├── notebooks/          # Experiments and Analysis (Jupyter)
 ├── src/
-│   ├── components/     # Vitakka (Search) and Vicara (Refinement) modules
-│   ├── model/          # Core Architectures
-│   │   ├── samadhi.py              # Base Class
-│   │   ├── conv_samadhi.py         # CNN-based (Image)
-│   │   ├── mlp_samadhi.py          # MLP-based (Tabular)
-│   │   ├── lstm_samadhi.py         # LSTM-based (Time Series)
-│   │   └── transformer_samadhi.py  # Transformer-based (Time Series)
-│   └── train/          # Trainer Implementations
-│       ├── base_trainer.py
-│       ├── supervised_trainer.py
-│       ├── unsupervised_trainer.py
-│       └── anomaly_trainer.py      # Contrastive Margin Loss Trainer
-├── tests/              # Unit Tests (Contains unit and integration test scripts)
+│   ├── components/     # Modularized Components
+│   │   ├── adapters/   # Input Adapters (MLP, CNN, LSTM, Transformer)
+│   │   ├── decoders/   # Output Decoders
+│   │   ├── vitakka/    # Search Modules
+│   │   ├── vicara/     # Refinement Modules
+│   │   └── refiners/   # Core refinement networks (MLP, GRU)
+│   ├── core/           # Core Engine and Builder
+│   ├── presets/        # Factory functions for standard configurations (Tabular, Vision, Sequence)
+│   ├── train/          # Training Logic
+│   │   ├── hf_trainer.py # Hugging Face Trainer Wrapper
+│   │   └── objectives/   # Pluggable Training Objectives
+│   └── utils/          # Utility functions
+├── tests/              # Unit Tests
 ├── main.py             # Entry point
 └── pyproject.toml      # Project configuration (uv)
 ```
@@ -92,43 +91,82 @@ This project uses `uv` as its package manager.
 uv sync
 ```
 
-### 1. Basic Usage (Signal Purification)
+### 1. Basic Usage (Using Presets)
 
-This is a minimal demo for extracting specific signals (intentions) from noisy waveforms.
+Easily create a model for your data type using presets.
 
 ```python
-from src.model.samadhi import SamadhiModel
-from src.model.mlp_samadhi import MlpSamadhiModel # Example of a specific implementation
 import torch
+from src.presets.tabular import create_mlp_samadhi
 
-# Configuration would be specific to the model type
-config = {"input_dim": 10, "dim": 64, "n_probes": 5, "refine_steps": 5, "gate_threshold": 0.5}
-model = MlpSamadhiModel(config)
+# Configuration
+config = {
+    "input_dim": 10, 
+    "dim": 64, 
+    "output_dim": 10,
+    "n_probes": 5, 
+    "refine_steps": 5, 
+    "gate_threshold": 0.5
+}
 
-# Example usage:
-input_data = torch.randn(1, config["input_dim"]) # Batch size 1
-purified_state, _ = model.forward_step(input_data, step_idx=0)
-print(f"Purified state shape: {purified_state.shape}")
+# Create a tabular model (formerly MlpSamadhiModel)
+model = create_mlp_samadhi(config)
+
+# Inference
+input_data = torch.randn(1, config["input_dim"])
+output, s_final, meta = model(input_data)
+
+print(f"Purified state shape: {s_final.shape}")
+print(f"Reconstructed output shape: {output.shape}")
 ```
 
-### 2. Run Demos (Jupyter Notebooks)
+### 2. Custom Construction (Using Builder)
 
-For various experiments including visual demos, supervised/unsupervised training, and anomaly detection tasks (Credit Card Fraud, Sensor Failures), use the Jupyter Notebooks provided in `notebooks/`.
+Build a custom model by mixing and matching components.
 
-```bash
-# Start Jupyter
-uv run jupyter notebook
-# Open notebooks such as:
-# - 'notebooks/mnist.ipynb' (Visual Samadhi Demo)
-# - 'notebooks/fraud_detection.ipynb' (Tabular Anomaly Detection)
-# - 'notebooks/time_series_anomaly_detection.ipynb' (Time Series Anomaly Detection)
+```python
+from src.core.builder import SamadhiBuilder
+from src.components.adapters.vision import CnnAdapter
+from src.components.decoders.vision import CnnDecoder
+
+config = {"dim": 32, "channels": 3, "img_size": 32, "n_probes": 5}
+
+model = SamadhiBuilder(config)
+    .set_adapter(CnnAdapter(config))
+    .set_vitakka()
+    .set_vicara(refiner_type="mlp")
+    .set_decoder(CnnDecoder(config))
+    .build()
+```
+
+### 3. Training (Objective-Driven)
+
+Train the model using the Hugging Face compatible Trainer and pluggable Objectives.
+
+```python
+from src.train import SamadhiTrainer
+from src.train.objectives.unsupervised import UnsupervisedObjective
+
+# Define Objective (e.g., Unsupervised Learning: Reconstruction + Stability)
+objective = UnsupervisedObjective(config)
+
+# Initialize Trainer
+trainer = SamadhiTrainer(
+    model=model,
+    args=training_args, # Hugging Face TrainingArguments
+    objective=objective,
+    train_dataset=dataset
+)
+
+# Train
+trainer.train()
 ```
 
 -----
 
 ## 📊 Architecture Comparison
 
-| Feature | Transformer (GPT) | Samadhi Model (Ours) |
+| Feature | Transformer (GPT) | Samadhi Framework (Ours) |
 | :--- | :--- | :--- |
 | **Vector Flow** | Divergence | Convergence |
 | **Time Complexity** | $O(N^2)$ (Quadratic) | $O(1)$ (Constant/Iterative) |
@@ -143,8 +181,9 @@ uv run jupyter notebook
 *   [x] **v1.0:** Theoretical Definition (Concept Proof)
 *   [x] **v2.2:** Waveform Simulation (Vitakka/Vicāra Implemented)
 *   [x] **v2.3:** Gating & Meta-Cognition (Sati Implemented)
-*   [x] **v2.4:** Anomaly Detection & Time Series Support (LSTM/Transformer)
-*   [ ] **v3.0:** NLP Implementation (Text Summarization/Concept Extraction)
+*   [x] **v2.4:** Anomaly Detection & Time Series Support
+*   [x] **v3.0:** **Framework Refactoring** (Modularization, Builder, HF Trainer)
+*   [ ] **v3.1:** NLP Implementation (Text Summarization/Concept Extraction)
 *   [ ] **Future:** Multi-Agent Samadhi (Dialogue of Insight)
 
 -----
