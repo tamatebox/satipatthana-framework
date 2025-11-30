@@ -88,7 +88,7 @@ def test_hf_trainer_compute_loss(mock_config, tmp_path):
     model = MockModel(mock_config)
     objective = UnsupervisedObjective(mock_config, device="cpu")
 
-    args = TrainingArguments(output_dir=tmp_path, use_cpu=True, no_cuda=True)
+    args = TrainingArguments(output_dir=tmp_path, use_cpu=True)
 
     trainer = SamadhiTrainer(model=model, args=args, objective=objective)
 
@@ -106,7 +106,7 @@ def test_hf_trainer_compute_loss(mock_config, tmp_path):
 def test_hf_trainer_compute_loss_with_return_outputs(mock_config, tmp_path):
     model = MockModel(mock_config)
     objective = UnsupervisedObjective(mock_config, device="cpu")
-    args = TrainingArguments(output_dir=tmp_path, use_cpu=True, no_cuda=True)
+    args = TrainingArguments(output_dir=tmp_path, use_cpu=True)
     trainer = SamadhiTrainer(model=model, args=args, objective=objective)
 
     inputs = {"x": torch.randn(4, 10)}
