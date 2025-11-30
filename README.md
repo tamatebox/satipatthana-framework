@@ -61,15 +61,15 @@ The unique properties of the Samadhi Framework make it suitable for tasks requir
 ├── docs/               # Theoretical specifications and plans
 ├── notebooks/          # Experiments and Analysis (Jupyter)
 ├── src/
-│   ├── components/     # Modularized Components
+│   ├── components/     # Modularized Components ([Details](src/components/README.md))
 │   │   ├── adapters/   # Input Adapters (MLP, CNN, LSTM, Transformer)
 │   │   ├── decoders/   # Output Decoders
 │   │   ├── vitakka/    # Search Modules
 │   │   ├── vicara/     # Refinement Modules
 │   │   └── refiners/   # Core refinement networks (MLP, GRU)
 │   ├── core/           # Core Engine and Builder
-│   ├── presets/        # Factory functions for standard configurations (Tabular, Vision, Sequence)
-│   ├── train/          # Training Logic
+│   ├── presets/        # Factory functions for standard configurations (Tabular, Vision, Sequence) ([Details](src/presets/README.md))
+│   ├── train/          # Training Logic ([Details](src/train/README.md))
 │   │   ├── hf_trainer.py # Hugging Face Trainer Wrapper
 │   │   └── objectives/   # Pluggable Training Objectives
 │   └── utils/          # Utility functions
