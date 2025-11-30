@@ -4,7 +4,11 @@ import torch.nn as nn
 from src.core.builder import SamadhiBuilder
 from src.core.engine import SamadhiEngine
 from src.components.adapters.base import BaseAdapter
+from src.components.adapters.mlp import MlpAdapter
+from src.components.adapters.vision import CnnAdapter
 from src.components.decoders.base import BaseDecoder
+from src.components.decoders.reconstruction import ReconstructionDecoder
+from src.components.decoders.vision import CnnDecoder
 from src.components.vitakka.base import BaseVitakka
 from src.components.vitakka.standard import StandardVitakka
 from src.components.vicara.base import BaseVicara
@@ -53,6 +57,9 @@ def builder_config():
         "refine_steps": 5,
         "vicara_type": "standard",
         "probe_trainable": True,
+        # Additional configs for specific components
+        "channels": 3,
+        "img_size": 32,
     }
 
 
@@ -70,6 +77,18 @@ def test_builder_set_adapter(builder_config):
     adapter = MockAdapter(builder_config)
     builder.set_adapter(adapter)
     assert builder.adapter == adapter
+
+
+def test_builder_set_adapter_by_type_mlp(builder_config):
+    builder = SamadhiBuilder(builder_config)
+    builder.set_adapter(type="mlp")
+    assert isinstance(builder.adapter, MlpAdapter)
+
+
+def test_builder_set_adapter_by_type_cnn(builder_config):
+    builder = SamadhiBuilder(builder_config)
+    builder.set_adapter(type="cnn")
+    assert isinstance(builder.adapter, CnnAdapter)
 
 
 def test_builder_set_vitakka(builder_config):
@@ -113,6 +132,18 @@ def test_builder_set_decoder(builder_config):
     decoder = MockDecoder(builder_config)
     builder.set_decoder(decoder)
     assert builder.decoder == decoder
+
+
+def test_builder_set_decoder_by_type_reconstruction(builder_config):
+    builder = SamadhiBuilder(builder_config)
+    builder.set_decoder(type="reconstruction")
+    assert isinstance(builder.decoder, ReconstructionDecoder)
+
+
+def test_builder_set_decoder_by_type_cnn(builder_config):
+    builder = SamadhiBuilder(builder_config)
+    builder.set_decoder(type="cnn")
+    assert isinstance(builder.decoder, CnnDecoder)
 
 
 def test_builder_build_success(builder_config):

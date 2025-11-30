@@ -3,18 +3,22 @@ import torch.nn as nn
 
 from src.core.engine import SamadhiEngine
 from src.components.vitakka.base import BaseVitakka
-from src.components.vitakka.standard import StandardVitakka  # Assuming StandardVitakka as default for now
+from src.components.vitakka.standard import StandardVitakka
 from src.components.vicara.base import BaseVicara
 from src.components.vicara.standard import StandardVicara
 from src.components.vicara.weighted import WeightedVicara
 from src.components.vicara.probe_specific import ProbeVicara
-from src.components.refiners.mlp import MlpRefiner  # For now, only MlpRefiner is available
-from src.components.adapters.base import BaseAdapter  # To be used with Vitakka
+from src.components.refiners.mlp import MlpRefiner
 
-# Note: These will be concrete implementations, but for now we rely on user passing instances
-# or we will implement basic ones here/elsewhere.
-# For the Builder to be fully functional, we need the specific Adapter/Decoder classes.
-# Since we haven't implemented MlpAdapter etc. yet, the builder will be partial.
+# Import concrete Adapters
+from src.components.adapters.mlp import MlpAdapter
+from src.components.adapters.vision import CnnAdapter
+from src.components.adapters.sequence import LstmAdapter, TransformerAdapter
+
+# Import concrete Decoders
+from src.components.decoders.reconstruction import ReconstructionDecoder
+from src.components.decoders.vision import CnnDecoder
+from src.components.decoders.sequence import LstmDecoder, SimpleSequenceDecoder
 
 
 class SamadhiBuilder:
@@ -30,8 +34,27 @@ class SamadhiBuilder:
         self.vicara = None
         self.decoder = None
 
-    def set_adapter(self, adapter: nn.Module):
-        self.adapter = adapter
+    def set_adapter(self, adapter: nn.Module = None, type: str = None):
+        """
+        Sets the Adapter component.
+        Args:
+            adapter: An instantiated Adapter module.
+            type: A string specifying the adapter type to build ('mlp', 'cnn', 'lstm', 'transformer').
+                  Used if 'adapter' is None.
+        """
+        if adapter is not None:
+            self.adapter = adapter
+        elif type is not None:
+            if type == "mlp":
+                self.adapter = MlpAdapter(self.config)
+            elif type == "cnn":
+                self.adapter = CnnAdapter(self.config)
+            elif type == "lstm":
+                self.adapter = LstmAdapter(self.config)
+            elif type == "transformer":
+                self.adapter = TransformerAdapter(self.config)
+            else:
+                raise ValueError(f"Unsupported adapter type: {type}")
         return self
 
     def set_vitakka(self, vitakka: BaseVitakka = None):
@@ -88,8 +111,30 @@ class SamadhiBuilder:
                 self.vicara = StandardVicara(self.config, refiners_list[0])  # StandardVicara expects a single refiner
         return self
 
-    def set_decoder(self, decoder: nn.Module):
-        self.decoder = decoder
+    def set_decoder(self, decoder: nn.Module = None, type: str = None):
+        """
+        Sets the Decoder component.
+        Args:
+            decoder: An instantiated Decoder module.
+            type: A string specifying the decoder type to build ('reconstruction', 'classification', 'cnn', 'lstm', 'simple_sequence').
+                  Used if 'decoder' is None.
+        """
+        if decoder is not None:
+            self.decoder = decoder
+        elif type is not None:
+            if type == "reconstruction":
+                self.decoder = ReconstructionDecoder(self.config)
+            # Placeholder for ClassificationDecoder if implemented later
+            # elif type == "classification":
+            #     self.decoder = ClassificationDecoder(self.config)
+            elif type == "cnn":
+                self.decoder = CnnDecoder(self.config)
+            elif type == "lstm":
+                self.decoder = LstmDecoder(self.config)
+            elif type == "simple_sequence":
+                self.decoder = SimpleSequenceDecoder(self.config)
+            else:
+                raise ValueError(f"Unsupported decoder type: {type}")
         return self
 
     def build(self) -> SamadhiEngine:
