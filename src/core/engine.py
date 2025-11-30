@@ -4,8 +4,8 @@ import torch.nn as nn
 
 from src.components.adapters.base import BaseAdapter
 from src.components.decoders.base import BaseDecoder
-from src.components.vitakka import Vitakka
-from src.components.vicara import VicaraBase
+from src.components.vitakka.base import BaseVitakka
+from src.components.vicara.base import BaseVicara
 
 
 class SamadhiEngine(nn.Module):
@@ -17,7 +17,12 @@ class SamadhiEngine(nn.Module):
     """
 
     def __init__(
-        self, adapter: BaseAdapter, vitakka: Vitakka, vicara: VicaraBase, decoder: BaseDecoder, config: Dict[str, Any]
+        self,
+        adapter: BaseAdapter,
+        vitakka: BaseVitakka,
+        vicara: BaseVicara,
+        decoder: BaseDecoder,
+        config: Dict[str, Any],
     ):
         super().__init__()
         self.adapter = adapter
@@ -46,7 +51,7 @@ class SamadhiEngine(nn.Module):
 
         # 2. Vitakka: Search & Initial State
         # Vitakka returns (s0, meta)
-        s0, meta = self.vitakka(z)
+        s0, meta = self.vitakka(z)  # Pass adapted latent state
 
         # 3. Vicara: Refinement (Purification)
         # Vicara returns (s_final, trajectory, energies)
@@ -75,7 +80,7 @@ class SamadhiEngine(nn.Module):
         z = self.adapter(x_input)
 
         # 2. Vitakka
-        s0, meta = self.vitakka(z)
+        s0, meta = self.vitakka(z)  # Pass adapted latent state
 
         # Gate Check (assuming batch_size=1)
         is_gate_open = meta["gate_open"]
@@ -123,7 +128,9 @@ class SamadhiEngine(nn.Module):
         return s_final, full_log
 
     def _compute_dynamics(self, current_log: Dict) -> Optional[Dict]:
-        """Compute state transition dynamics."""
+        """
+        Compute state transition dynamics.
+        """
         if not self.history_log:
             return None
 

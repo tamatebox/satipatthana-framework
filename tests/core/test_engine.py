@@ -6,12 +6,16 @@ from unittest.mock import MagicMock
 from src.core.engine import SamadhiEngine
 from src.components.adapters.base import BaseAdapter
 from src.components.decoders.base import BaseDecoder
-from src.components.vitakka import Vitakka  # Using concrete Vitakka for now
-from src.components.vicara import VicaraBase, StandardVicara  # Using concrete Vicara for now
+from src.components.vitakka.base import BaseVitakka  # Using abstract Vitakka for now
+from src.components.vicara.base import BaseVicara  # Using abstract Vicara for now
+from src.components.vitakka.standard import StandardVitakka
+from src.components.vicara.standard import StandardVicara
+from src.components.refiners.base import BaseRefiner  # Import BaseRefiner for MockRefiner
 
 
 # Mock implementations for abstract classes
 class MockAdapter(BaseAdapter):
+
     def __init__(self, config):
         super().__init__(config)
         self.linear = nn.Linear(config["input_dim"], config["dim"])
@@ -26,6 +30,17 @@ class MockDecoder(BaseDecoder):
         self.linear = nn.Linear(config["dim"], config["output_dim"])
 
     def forward(self, s: torch.Tensor) -> torch.Tensor:
+        return self.linear(s)
+
+
+# Define a simple MockRefiner for testing purposes
+class MockRefiner(BaseRefiner):
+    def __init__(self, config):
+        super().__init__(config)
+        self.linear = nn.Linear(config["dim"], config["dim"])
+
+    def forward(self, s: torch.Tensor) -> torch.Tensor:
+        # Simple identity-like transformation for mock
         return self.linear(s)
 
 
@@ -45,8 +60,10 @@ def basic_config():
 @pytest.fixture
 def mock_components(basic_config):
     adapter = MockAdapter(basic_config)
-    vitakka = Vitakka(basic_config)
-    vicara = StandardVicara(basic_config)
+    vitakka = StandardVitakka(basic_config)  # No adapter argument needed
+    # Use MockRefiner instead of MagicMock
+    refiner = MockRefiner(basic_config)
+    vicara = StandardVicara(basic_config, refiner)
     decoder = MockDecoder(basic_config)
     return adapter, vitakka, vicara, decoder
 
@@ -81,7 +98,7 @@ def test_samadhi_engine_forward_step_open_gate(basic_config, mock_components):
     adapter, vitakka, vicara, decoder = mock_components
     # Ensure gate is always open for this test
     basic_config["gate_threshold"] = -100.0  # Make sure gate is open
-    vitakka = Vitakka(basic_config)  # Re-init Vitakka with new gate_threshold
+    vitakka = StandardVitakka(basic_config)  # Re-init Vitakka with new gate_threshold (no adapter)
 
     engine = SamadhiEngine(adapter, vitakka, vicara, decoder, basic_config)
 
@@ -98,7 +115,7 @@ def test_samadhi_engine_forward_step_closed_gate(basic_config, mock_components):
     adapter, vitakka, vicara, decoder = mock_components
     # Ensure gate is always closed for this test
     basic_config["gate_threshold"] = 100.0  # Make sure gate is closed
-    vitakka = Vitakka(basic_config)  # Re-init Vitakka with new gate_threshold
+    vitakka = StandardVitakka(basic_config)  # Re-init Vitakka with new gate_threshold (no adapter)
 
     engine = SamadhiEngine(adapter, vitakka, vicara, decoder, basic_config)
 
