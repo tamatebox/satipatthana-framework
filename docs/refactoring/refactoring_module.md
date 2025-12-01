@@ -75,19 +75,19 @@ class SamadhiEngine(nn.Module):
 Standardize inputs/outputs for pluggability.
 
 *   **`BaseAdapter`**: `Raw Input -> Tensor(Batch, Dim)`
-    *   Path: `src/components/adapters/base.py`
+    *   Path: `samadhi/components/adapters/base.py`
     *   Implementations: `MlpAdapter` (Implemented), `CnnAdapter` (**Implemented**), `LstmAdapter` (**Implemented**), `TransformerAdapter` (**Implemented**)
 *   **`BaseVitakka`** (Prober): `Tensor(Batch, Dim) -> (s0, Metadata)`
-    *   Path: `src/components/vitakka/base.py`
+    *   Path: `samadhi/components/vitakka/base.py`
     *   Implementations: `StandardVitakka` (Implemented), `HierarchicalVitakka`
 *   **`BaseVicara`** (Refiner Orchestrator): `s0 -> s_final`
-    *   Path: `src/components/vicara/base.py`
+    *   Path: `samadhi/components/vicara/base.py`
     *   Implementations: `StandardVicara` (Implemented), `WeightedVicara` (Implemented), `ProbeVicara` (Implemented)
 *   **`BaseRefiner`**: `Latent State (s) -> Residual (phi(s))`
-    *   Path: `src/components/refiners/base.py`
+    *   Path: `samadhi/components/refiners/base.py`
     *   Implementations: `MlpRefiner` (Implemented), `GruRefiner`, `AttentionRefiner`
 *   **`BaseDecoder`**: `Tensor(Batch, Dim) -> Output`
-    *   Path: `src/components/decoders/base.py`
+    *   Path: `samadhi/components/decoders/base.py`
     *   Implementations: `ReconstructionDecoder` (Implemented), `ClassificationDecoder`, `CnnDecoder` (**Implemented**), `LstmDecoder` (**Implemented**), `SimpleSequenceDecoder` (**Implemented**)
 
 ### 3.3. Construction (Builder / Factory)
@@ -110,28 +110,28 @@ model = SamadhiBuilder(dim=64) \
 We will proceed in phases to avoid breaking existing functionality.
 
 ### Phase 1: Component Decoupling
-*   Extract `Adapter` and `Decoder` logic from `SamadhiModel` subclasses into independent classes in `src/components/adapters/` and `src/components/decoders/`.
+*   Extract `Adapter` and `Decoder` logic from `SamadhiModel` subclasses into independent classes in `samadhi/components/adapters/` and `samadhi/components/decoders/`.
     *   **Status:** `MlpAdapter`, `CnnAdapter`, `LstmAdapter`, `TransformerAdapter` and `ReconstructionDecoder`, `CnnDecoder`, `LstmDecoder`, `SimpleSequenceDecoder` have been successfully extracted and implemented.
-*   Extract `Refiner` logic from `Vicara` into independent classes in `src/components/refiners/`.
+*   Extract `Refiner` logic from `Vicara` into independent classes in `samadhi/components/refiners/`.
     *   **Status:** `MlpRefiner` has been successfully extracted and implemented.
-*   Refactor `Vitakka` and `Vicara` into their respective packages (`src/components/vitakka/` and `src/components/vicara/`) with base classes and implementations.
+*   Refactor `Vitakka` and `Vicara` into their respective packages (`samadhi/components/vitakka/` and `samadhi/components/vicara/`) with base classes and implementations.
     *   **Status:** `StandardVitakka`, `StandardVicara`, `WeightedVicara`, `ProbeVicara` have been successfully implemented and restructured.
 *   Ensure all components rely only on standard Tensor interfaces.
     *   **Status:** Completed.
 
 ### Phase 2: Core Refactoring (`SamadhiEngine`)
-*   Create the new `SamadhiEngine` class (now `src/core/engine.py`).
+*   Create the new `SamadhiEngine` class (now `samadhi/core/engine.py`).
 *   **Status:** Completed. The `SamadhiEngine` is now the core container, directly used for model construction.
 
 ### Phase 3: Preset Definitions
 *   Redefine `MlpSamadhiModel`, `LstmSamadhiModel`, `ConvSamadhiModel`, `TransformerSamadhiModel` as factory functions that return a configured `SamadhiEngine`.
     *   *Old:* `model = MlpSamadhiModel(config)`
-    *   *New:* `model = create_mlp_samadhi(config)` (from `src/presets/tabular.py`), `create_conv_samadhi(config)` (from `src/presets/vision.py`), `create_lstm_samadhi(config)` (from `src/presets/sequence.py`), `create_transformer_samadhi(config)` (from `src/presets/sequence.py`).
-*   **Status:** Completed. All legacy model classes have been replaced by factory functions in `src/presets/`.
+    *   *New:* `model = create_mlp_samadhi(config)` (from `samadhi/presets/tabular.py`), `create_conv_samadhi(config)` (from `samadhi/presets/vision.py`), `create_lstm_samadhi(config)` (from `samadhi/presets/sequence.py`), `create_transformer_samadhi(config)` (from `samadhi/presets/sequence.py`).
+*   **Status:** Completed. All legacy model classes have been replaced by factory functions in `samadhi/presets/`.
 
 ### Phase 4: Trainer Generalization (Objective-Driven)
 *   Refactor `BaseSamadhiTrainer` (and move to a Hugging Face Trainer wrapper) to delegate loss calculation to an injectable **`Objective`** component.
-*   **`SamadhiObjective` Interface (src/train/objectives/base_objective.py):**
+*   **`SamadhiObjective` Interface (samadhi/train/objectives/base_objective.py):**
     *   Defines how to compute `Total Loss` from `(Model Output, Target, Samadhi Metadata)`.
     *   **New properties:**
         *   `needs_vitakka: bool = True`: If `False`, the `SamadhiEngine` will skip the Vitakka (Search) component and treat the Adapter's output directly as the initial latent state.
@@ -146,11 +146,11 @@ We will proceed in phases to avoid breaking existing functionality.
     *   The `SamadhiEngine`'s `forward` method will be updated to accept `run_vitakka: bool` and `run_vicara: bool` arguments.
     *   It will dynamically execute the forward pass based on these flags, ensuring that only necessary components are run.
     *   Example: `output, s_final, meta = self.model(x, run_vitakka=self.objective.needs_vitakka, run_vicara=self.objective.needs_vicara)`
-*   **Hugging Face Trainer Integration (`src/train/hf_trainer.py`):**
+*   **Hugging Face Trainer Integration (`samadhi/train/hf_trainer.py`):**
     *   A custom `SamadhiTrainer` class (inheriting from `transformers.Trainer`) will be created.
     *   Its `compute_loss` method will call `self.model.forward` with the `needs_vitakka` and `needs_vicara` flags from the injected `objective`.
     *   This leverages HF Trainer's robust features (distributed training, mixed precision, logging) while using Samadhi's custom loss and dynamic execution paths.
-*   **Parameter Freezing (src/utils/training.py):**
+*   **Parameter Freezing (samadhi/utils/training.py):**
     *   The responsibility for freezing specific components (e.g., `adapter`, `vitakka`, `vicara`, `decoder`) lies **outside** the `Trainer` itself.
     *   A utility function (e.g., `freeze_components(model, components_to_freeze: List[str])`) will be provided.
     *   Users will call this utility **before** initializing the `SamadhiTrainer` to prepare the model for specific training phases (e.g., pre-training only the Adapter and Decoder).
@@ -161,7 +161,7 @@ We will proceed in phases to avoid breaking existing functionality.
 ## 5. Directory Structure After Refactoring
 
 ```
-src/
+samadhi/
 ├── core/
 │   ├── engine.py           # SamadhiEngine (The Container)
 │   └── builder.py          # SamadhiBuilder

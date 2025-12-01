@@ -24,7 +24,7 @@
 **機能:** 異なるモダリティ（画像、時系列、テキストなど）を持つ生の外部入力 $X_{raw}$ を、モデル固有の潜在空間（Samadhi Space）へ投影・正規化する。
 
 *   **Role:** 外界の信号を、モデルが扱える「意味の形式」へと変換する（作意）。
-*   **Interface:** `BaseAdapter` (`src/components/adapters/base.py`)
+*   **Interface:** `BaseAdapter` (`samadhi/components/adapters/base.py`)
 *   **Implementations:**
     *   *MlpAdapter:* タブラーデータやフラットなベクトル用。
     *   *CnnAdapter:* 画像データ用 (Conv2d)。
@@ -36,7 +36,7 @@
 
 **機能:** カオス的な入力ストリーム（$X_{adapted}$）から、収束に値する初期アトラクタ（種）を発見し、方向付けを行う。
 
-*   **Interface:** `BaseVitakka` (`src/components/vitakka/base.py`)
+*   **Interface:** `BaseVitakka` (`samadhi/components/vitakka/base.py`)
 1.  **Concept Probes ($\mathbf{P}$):**
       * システムは $K$ 個の「概念プローブ（基底ベクトル）」を持つ。
 2.  **Active Resonance:**
@@ -51,7 +51,7 @@
 
 **機能:** 外部入力を遮断し、内部状態を再帰的に純化する。
 
-*   **Interface:** `BaseVicara` (`src/components/vicara/base.py`)
+*   **Interface:** `BaseVicara` (`samadhi/components/vicara/base.py`)
 *   **Implementations:**
     *   *StandardVicara:* 単一の汎用Refiner ($\\Phi$) を共有する。
     *   *WeightedVicara:* 複数のRefinerの重み付き和を使用。
@@ -70,7 +70,7 @@
 
 **機能:** 潜在空間内での状態遷移（力学系）を定義する、Vicāra内部の実行ユニット。
 
-*   **Interface:** `BaseRefiner` (`src/components/refiners/base.py`)
+*   **Interface:** `BaseRefiner` (`samadhi/components/refiners/base.py`)
 *   **Implementations:**
     *   *MlpRefiner:* 全結合層と活性化関数によるシンプルな状態更新。
     *   *GruRefiner:* (Future) GRUセルを用いた、記憶を持つ状態更新。
@@ -88,7 +88,7 @@
 **機能:** 収束・純化された潜在状態 $S_{final}$ を、元の入力形式やターゲット形式に復元・変換する。
 
 *   **Role:** 内的な洞察（Insight）を、外的な表現（Expression）へと戻す。
-*   **Interface:** `BaseDecoder` (`src/components/decoders/base.py`)
+*   **Interface:** `BaseDecoder` (`samadhi/components/decoders/base.py`)
 *   **Implementations:**
     *   *ReconstructionDecoder:* $S_{final}$ を元の入力次元に戻す（Autoencoder用）。
     *   *CnnDecoder:* 画像再構成用。

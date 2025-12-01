@@ -1,8 +1,8 @@
 import pytest
 import torch
-from src.presets.sequence import create_lstm_samadhi, create_transformer_samadhi
-from src.configs.main import SamadhiConfig
-from src.configs.enums import AdapterType, VicaraType, DecoderType
+from samadhi.presets.sequence import create_lstm_samadhi, create_transformer_samadhi
+from samadhi.configs.main import SamadhiConfig
+from samadhi.configs.enums import AdapterType, VicaraType, DecoderType
 
 
 @pytest.fixture

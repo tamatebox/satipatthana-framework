@@ -1,8 +1,8 @@
 import pytest
-from src.configs.main import SamadhiConfig
-from src.configs.adapters import MlpAdapterConfig, CnnAdapterConfig
-from src.configs.vicara import StandardVicaraConfig, ProbeVicaraConfig
-from src.configs.decoders import ReconstructionDecoderConfig
+from samadhi.configs.main import SamadhiConfig
+from samadhi.configs.adapters import MlpAdapterConfig, CnnAdapterConfig
+from samadhi.configs.vicara import StandardVicaraConfig, ProbeVicaraConfig
+from samadhi.configs.decoders import ReconstructionDecoderConfig
 
 
 def test_samadhi_config_defaults():

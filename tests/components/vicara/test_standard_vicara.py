@@ -1,8 +1,8 @@
 import pytest
 import torch
 import torch.nn as nn
-from src.components.vicara.standard import StandardVicara
-from src.components.refiners.base import BaseRefiner
+from samadhi.components.vicara.standard import StandardVicara
+from samadhi.components.refiners.base import BaseRefiner
 
 
 class MockRefiner(BaseRefiner):

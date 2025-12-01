@@ -1,6 +1,6 @@
 import pytest
 import torch
-from src.components.refiners import MlpRefiner
+from samadhi.components.refiners import MlpRefiner
 
 
 def test_mlp_refiner_initialization():

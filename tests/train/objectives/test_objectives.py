@@ -1,12 +1,12 @@
 import pytest
 import torch
 import torch.nn as nn
-from src.train.objectives.supervised_regression import SupervisedRegressionObjective
-from src.train.objectives.unsupervised import UnsupervisedObjective
-from src.train.objectives.anomaly import AnomalyObjective
-from src.train.objectives.supervised_classification import SupervisedClassificationObjective
-from src.train.objectives.robust_regression import RobustRegressionObjective
-from src.train.objectives.cosine_similarity import CosineSimilarityObjective
+from samadhi.train.objectives.supervised_regression import SupervisedRegressionObjective
+from samadhi.train.objectives.unsupervised import UnsupervisedObjective
+from samadhi.train.objectives.anomaly import AnomalyObjective
+from samadhi.train.objectives.supervised_classification import SupervisedClassificationObjective
+from samadhi.train.objectives.robust_regression import RobustRegressionObjective
+from samadhi.train.objectives.cosine_similarity import CosineSimilarityObjective
 
 
 @pytest.fixture

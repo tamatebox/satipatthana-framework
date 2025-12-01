@@ -1,6 +1,6 @@
 # Logging Guidelines for Samadhi Framework
 
-The Samadhi Framework uses a centralized logging utility (`src/utils/logger.py`) to provide consistent and configurable logging across the project. This document outlines how to set up and use logging effectively.
+The Samadhi Framework uses a centralized logging utility (`samadhi/utils/logger.py`) to provide consistent and configurable logging across the project. This document outlines how to set up and use logging effectively.
 
 ## 1. Setting Up Logging
 
@@ -10,7 +10,7 @@ To ensure consistent logging behavior, you *must* call `setup_logging()` once at
 
 ```python
 import logging
-from src.utils.logger import setup_logging
+from samadhi.utils.logger import setup_logging
 
 def main():
     # Configure logging: INFO level to console, DEBUG level to a file
@@ -35,7 +35,7 @@ Within any module, retrieve a logger instance using `get_logger(__name__)`. This
 **Example:**
 
 ```python
-from src.utils.logger import get_logger
+from samadhi.utils.logger import get_logger
 
 # Get a logger for the current module
 logger = get_logger(__name__)

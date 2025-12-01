@@ -3,16 +3,16 @@ import torch
 import torch.nn as nn
 from unittest.mock import MagicMock
 
-from src.core.engine import SamadhiEngine
-from src.components.adapters.base import BaseAdapter
-from src.components.decoders.base import BaseDecoder
-from src.components.vitakka.base import BaseVitakka  # Using abstract Vitakka for now
-from src.components.vicara.base import BaseVicara  # Using abstract Vicara for now
-from src.components.vitakka.standard import StandardVitakka
-from src.components.vicara.standard import StandardVicara
-from src.components.refiners.base import BaseRefiner  # Import BaseRefiner for MockRefiner
-from src.configs.main import SamadhiConfig
-from src.configs.factory import (
+from samadhi.core.engine import SamadhiEngine
+from samadhi.components.adapters.base import BaseAdapter
+from samadhi.components.decoders.base import BaseDecoder
+from samadhi.components.vitakka.base import BaseVitakka  # Using abstract Vitakka for now
+from samadhi.components.vicara.base import BaseVicara  # Using abstract Vicara for now
+from samadhi.components.vitakka.standard import StandardVitakka
+from samadhi.components.vicara.standard import StandardVicara
+from samadhi.components.refiners.base import BaseRefiner  # Import BaseRefiner for MockRefiner
+from samadhi.configs.main import SamadhiConfig
+from samadhi.configs.factory import (
     create_adapter_config,
     create_decoder_config,
     create_vitakka_config,

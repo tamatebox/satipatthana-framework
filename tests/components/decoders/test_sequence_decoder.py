@@ -1,6 +1,6 @@
 import pytest
 import torch
-from src.components.decoders.sequence import LstmDecoder, SimpleSequenceDecoder
+from samadhi.components.decoders.sequence import LstmDecoder, SimpleSequenceDecoder
 
 
 @pytest.fixture

@@ -1,8 +1,8 @@
 import pytest
 import torch
 import torch.nn as nn
-from src.components.vitakka.standard import StandardVitakka
-from src.components.adapters.base import BaseAdapter
+from samadhi.components.vitakka.standard import StandardVitakka
+from samadhi.components.adapters.base import BaseAdapter
 
 
 class MockAdapter(BaseAdapter):

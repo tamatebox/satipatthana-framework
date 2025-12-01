@@ -1,8 +1,8 @@
 import pytest
 import torch
-from src.presets.tabular import create_mlp_samadhi
-from src.configs.main import SamadhiConfig
-from src.configs.enums import AdapterType, VicaraType, DecoderType
+from samadhi.presets.tabular import create_mlp_samadhi
+from samadhi.configs.main import SamadhiConfig
+from samadhi.configs.enums import AdapterType, VicaraType, DecoderType
 
 
 @pytest.fixture

@@ -2,9 +2,9 @@
 
 このドキュメントでは、`SamadhiFramework`のConfigパラメータについて説明します。v3.1以降、設定は従来の辞書ベース（`Dict[str, Any]`）から、より型安全で構造化されたDataclassベースのシステムに移行しました。これにより、各パラメータは特定のConfigオブジェクトの属性としてアクセスされ、コードの可読性と保守性が向上しています。
 
-Configのルートは`src/configs/main.py`で定義されている`SamadhiConfig`オブジェクトです。
+Configのルートは`samadhi/configs/main.py`で定義されている`SamadhiConfig`オブジェクトです。
 
-## 1. ルート設定: `SamadhiConfig` (`src/configs/main.py`)
+## 1. ルート設定: `SamadhiConfig` (`samadhi/configs/main.py`)
 
 `SamadhiConfig`は、モデル全体のグローバルパラメータと、各主要コンポーネントのサブ設定を保持します。
 
@@ -19,7 +19,7 @@ Configのルートは`src/configs/main.py`で定義されている`SamadhiConfig
 | **`decoder`** | `ReconstructionDecoderConfig` (default) | いいえ | デコーダーコンポーネントの設定オブジェクト（`BaseDecoderConfig`のサブクラス）。 |
 | **`objective`** | `ObjectiveConfig` (default) | いいえ | 学習目標の設定オブジェクト（`ObjectiveConfig`のインスタンス）。 |
 
-## 2. アダプター設定 (`src/configs/adapters.py`)
+## 2. アダプター設定 (`samadhi/configs/adapters.py`)
 
 入力データから潜在状態を生成するアダプターの動作を定義します。具体的なConfigクラスは`AdapterType`によって異なります。
 
@@ -58,7 +58,7 @@ Configのルートは`src/configs/main.py`で定義されている`SamadhiConfig
 | **`transformer_layers`** | `2` | いいえ | Transformer Encoder層の数。 |
 | **`transformer_heads`** | `4` | いいえ | Multi-head Attentionのヘッド数。 |
 
-## 3. ヴィタッカー設定 (`src/configs/vitakka.py`)
+## 3. ヴィタッカー設定 (`samadhi/configs/vitakka.py`)
 
 初期状態（$S0$）の生成とプローブの管理を制御します。現在、`StandardVitakkaConfig`のみが提供されています。
 
@@ -73,7 +73,7 @@ Configのルートは`src/configs/main.py`で定義されている`SamadhiConfig
 | **`training_attention_mode`** | "soft" | いいえ | 学習時（`model.train()`）にVitakkaが使用するアテンションモード。 |
 | **`prediction_attention_mode`** | "hard" | いいえ | 推論時（`model.eval()`）にVitakkaが使用するアテンションモード。 |
 
-## 4. ヴィチャーラ設定 (`src/configs/vicara.py`)
+## 4. ヴィチャーラ設定 (`samadhi/configs/vicara.py`)
 
 潜在状態の再帰的精製プロセスを制御します。具体的なConfigクラスは`VicaraType`によって異なります。
 
@@ -97,7 +97,7 @@ Configのルートは`src/configs/main.py`で定義されている`SamadhiConfig
 | **`training_attention_mode`** | "soft" | いいえ | 学習時（`model.train()`）にVicaraが使用するアテンションモード。 |
 | **`prediction_attention_mode`** | "hard" | いいえ | 推論時（`model.eval()`）にVicaraが使用するアテンションモード。 |
 
-## 5. デコーダー設定 (`src/configs/decoders.py`)
+## 5. デコーダー設定 (`samadhi/configs/decoders.py`)
 
 精製された潜在状態から出力を生成するデコーダーの動作を定義します。具体的なConfigクラスは`DecoderType`によって異なります。
 
@@ -134,7 +134,7 @@ Configのルートは`src/configs/main.py`で定義されている`SamadhiConfig
 | **`seq_len`** | `50` | いいえ | 出力シーケンスの長さ。 |
 | **`decoder_hidden_dim`** | `128` | いいえ | 隠れ層の次元。 |
 
-## 6. Objective設定 (`src/configs/objectives.py`)
+## 6. Objective設定 (`samadhi/configs/objectives.py`)
 
 トレーニング中の損失関数（Objective）に関するパラメータを定義します。これは`SamadhiConfig.objective`としてアクセスされます。
 

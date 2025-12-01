@@ -1,6 +1,6 @@
 import pytest
 import torch
-from src.components.adapters.sequence import LstmAdapter, TransformerAdapter
+from samadhi.components.adapters.sequence import LstmAdapter, TransformerAdapter
 
 
 @pytest.fixture

@@ -1,6 +1,6 @@
 import pytest
 import torch
-from src.components.decoders import ReconstructionDecoder
+from samadhi.components.decoders import ReconstructionDecoder
 
 
 def test_reconstruction_decoder_initialization():

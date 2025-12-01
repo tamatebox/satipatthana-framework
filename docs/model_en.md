@@ -24,7 +24,7 @@ This framework is built by composing modular components: Adapter, Vitakka, Vicar
 **Function:** Projects and normalizes raw external inputs $X_{raw}$ from various modalities (image, time series, text, etc.) into the model-specific latent space (Samadhi Space).
 
 *   **Role:** Transforms external signals into a "semantic format" that the model can process (Attention/Manasikāra).
-*   **Interface:** `BaseAdapter` (`src/components/adapters/base.py`)
+*   **Interface:** `BaseAdapter` (`samadhi/components/adapters/base.py`)
 *   **Implementations:**
     *   *MlpAdapter:* For tabular data or flat vectors.
     *   *CnnAdapter:* For image data (Conv2d).
@@ -34,12 +34,12 @@ This framework is built by composing modular components: Adapter, Vitakka, Vicar
 
 ### Vitakka (Search & Orientation)
 
-**Function:** Discovers and orients towards an initial attractor (seed) worth converging to from the chaotic input stream ($X_{adapted}$). 
+**Function:** Discovers and orients towards an initial attractor (seed) worth converging to from the chaotic input stream ($X_{adapted}$).
 
-*   **Interface:** `BaseVitakka` (`src/components/vitakka/base.py`)
+*   **Interface:** `BaseVitakka` (`samadhi/components/vitakka/base.py`)
 1.  **Concept Probes ($\mathbf{P}$):**
       * The system holds $K$ "Concept Probes (Basis Vectors)".
-2.  **Active Resonance:** 
+2.  **Active Resonance:**
       * Calculates resonance (dot product) between input $X$ and probes $\mathbf{P}$.
       * **Lateral Inhibition:** Sets Softmax temperature $\tau$ low to highlight the strongest probe (Winner).
 3.  **Confidence Gating (Anti-Hallucination):**
@@ -51,7 +51,7 @@ This framework is built by composing modular components: Adapter, Vitakka, Vicar
 
 **Function:** Blocks external input and recursively purifies the internal state.
 
-*   **Interface:** `BaseVicara` (`src/components/vicara/base.py`)
+*   **Interface:** `BaseVicara` (`samadhi/components/vicara/base.py`)
 *   **Implementations:**
     *   *StandardVicara:* Shares a single general Refiner ($\Phi$).
     *   *WeightedVicara:* Uses a weighted sum of multiple Refiners.
@@ -59,7 +59,7 @@ This framework is built by composing modular components: Adapter, Vitakka, Vicar
 
 1.  **Isolation:** At $t > 0$, the gate to external input $X$ is closed, allowing only self-loops.
 2.  **Refinement Loop:**
-      * **Hard Attention Mode (Inference):** Applies only the Refiner $\Phi_{win}$ corresponding to the winner probe. 
+      * **Hard Attention Mode (Inference):** Applies only the Refiner $\Phi_{win}$ corresponding to the winner probe.
           * $S_{t+1} = \Phi_{win}(S_t)$
       * **Soft Attention Mode (Training):** Updates using a weighted sum based on probability distribution of all probes (for gradient propagation).
           * $S_{t+1} = \sum_k w_k \Phi_k(S_t)$
@@ -70,7 +70,7 @@ This framework is built by composing modular components: Adapter, Vitakka, Vicar
 
 **Function:** An execution unit inside Vicāra that defines state transitions (dynamics) in the latent space.
 
-*   **Interface:** `BaseRefiner` (`src/components/refiners/base.py`)
+*   **Interface:** `BaseRefiner` (`samadhi/components/refiners/base.py`)
 *   **Implementations:**
     *   *MlpRefiner:* Simple state update using Fully Connected layers and activation functions.
     *   *GruRefiner:* (Future) State update with memory using GRU cells.
@@ -88,7 +88,7 @@ This framework is built by composing modular components: Adapter, Vitakka, Vicar
 **Function:** Restores or converts the converged and purified latent state $S_{final}$ back to the original input format or target format.
 
 *   **Role:** Returning internal insight to external expression.
-*   **Interface:** `BaseDecoder` (`src/components/decoders/base.py`)
+*   **Interface:** `BaseDecoder` (`samadhi/components/decoders/base.py`)
 *   **Implementations:**
     *   *ReconstructionDecoder:* Returns $S_{final}$ to original input dimensions (for Autoencoder).
     *   *CnnDecoder:* For image reconstruction.

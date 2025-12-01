@@ -3,9 +3,9 @@ import pytest
 import torch
 import torch.nn as nn
 from transformers import TrainingArguments
-from src.train.hf_trainer import SamadhiTrainer
-from src.train.objectives.unsupervised import UnsupervisedObjective
-from src.configs.main import SamadhiConfig  # Import SamadhiConfig
+from samadhi.train.hf_trainer import SamadhiTrainer
+from samadhi.train.objectives.unsupervised import UnsupervisedObjective
+from samadhi.configs.main import SamadhiConfig  # Import SamadhiConfig
 
 # --- Mocks ---
 

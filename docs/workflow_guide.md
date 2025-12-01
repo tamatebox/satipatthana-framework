@@ -9,10 +9,10 @@ This guide provides a comprehensive step-by-step procedure for building, trainin
 The Samadhi Framework workflow is unique due to its cognitive architecture (Vitakka/Vicara) and typically requires a multi-stage training process.
 
 ### Key Directories
-* **Configuration (`src/configs/`)**: Defines model hyperparameters. Check here for required fields (e.g., `input_dim`, `seq_len`).
-* **Presets (`src/presets/`)**: Factory functions to quickly instantiate standard models (LSTM, Transformer, MLP, CNN). **Start here.**
-* **Objectives (`src/train/objectives/`)**: Defines the loss functions for different training phases (Autoencoder, Anomaly, Unsupervised).
-* **Trainer (`src/train/hf_trainer.py`)**: The custom `SamadhiTrainer` wrapper.
+* **Configuration (`samadhi/configs/`)**: Defines model hyperparameters. Check here for required fields (e.g., `input_dim`, `seq_len`).
+* **Presets (`samadhi/presets/`)**: Factory functions to quickly instantiate standard models (LSTM, Transformer, MLP, CNN). **Start here.**
+* **Objectives (`samadhi/train/objectives/`)**: Defines the loss functions for different training phases (Autoencoder, Anomaly, Unsupervised).
+* **Trainer (`samadhi/train/hf_trainer.py`)**: The custom `SamadhiTrainer` wrapper.
 
 ---
 
@@ -34,13 +34,13 @@ Before writing code, determine the **Data Type** and **Task Goal**.
 
 You must construct a `SamadhiConfig` object. The recommended approach is to define a dictionary (`config_dict`) and use `SamadhiConfig.from_dict()`.
 
-**Critical:** Certain parameters are **mandatory** and have no defaults. You *must* verify these in `src/configs/*.py`.
+**Critical:** Certain parameters are **mandatory** and have no defaults. You *must* verify these in `samadhi/configs/*.py`.
 
-* **Adapters (`src/configs/adapters.py`)**:
+* **Adapters (`samadhi/configs/adapters.py`)**:
     * `MlpAdapterConfig`: Requires `input_dim`.
     * `LstmAdapterConfig`: Requires `input_dim`, `seq_len`.
     * `CnnAdapterConfig`: Requires `img_size`, `channels`.
-* **Decoders (`src/configs/decoders.py`)**:
+* **Decoders (`samadhi/configs/decoders.py`)**:
     * `ReconstructionDecoderConfig`: Requires `input_dim` (target dim).
     * `LstmDecoderConfig`: Requires `output_dim` (target dim), `seq_len`.
 
@@ -90,7 +90,7 @@ You can instantiate the model using either a **Preset Factory** (simple, standar
 Handles connecting standard components (Adapter, Vitakka, Vicara, Decoder).
 
 ```python
-from src.presets.sequence import create_lstm_samadhi
+from samadhi.presets.sequence import create_lstm_samadhi
 model = create_lstm_samadhi(config)
 ```
 
@@ -98,7 +98,7 @@ model = create_lstm_samadhi(config)
 Allows detailed customization and component-by-component construction.
 
 ```python
-from src.core.builder import SamadhiBuilder
+from samadhi.core.builder import SamadhiBuilder
 
 # 1. Initialize Builder
 builder = SamadhiBuilder(config)
@@ -126,8 +126,8 @@ In this phase, we want to **force strong convergence** to establish the physics 
 Create a dedicated config for Phase 1. Do not reuse the Phase 2 settings here.
 
 ```python
-from src.train.objectives.autoencoder import AutoencoderObjective
-from src.configs.objectives import ObjectiveConfig
+from samadhi.train.objectives.autoencoder import AutoencoderObjective
+from samadhi.configs.objectives import ObjectiveConfig
 import copy
 
 # 1. Create Independent Config for Phase 1
@@ -191,7 +191,7 @@ In this phase, we **relax the constraints** to allow fine-tuning and flexibility
 Create a NEW config for Phase 2.
 
 ```python
-from src.train.objectives.anomaly import AnomalyObjective
+from samadhi.train.objectives.anomaly import AnomalyObjective
 
 # 1. Create Independent Config for Phase 2
 phase2_config = copy.deepcopy(config)

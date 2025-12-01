@@ -2,30 +2,30 @@ import pytest
 import torch
 import torch.nn as nn
 from dataclasses import asdict
-from src.core.builder import SamadhiBuilder
-from src.core.engine import SamadhiEngine
-from src.components.adapters.base import BaseAdapter
-from src.components.adapters.mlp import MlpAdapter
-from src.components.adapters.vision import CnnAdapter
-from src.components.decoders.base import BaseDecoder
-from src.components.decoders.reconstruction import ReconstructionDecoder
-from src.components.decoders.vision import CnnDecoder
-from src.components.vitakka.base import BaseVitakka
-from src.components.vitakka.standard import StandardVitakka
-from src.components.vicara.base import BaseVicara
-from src.components.vicara.standard import StandardVicara
-from src.components.vicara.weighted import WeightedVicara
-from src.components.vicara.probe_specific import ProbeVicara
-from src.components.refiners.mlp import MlpRefiner
-from src.configs.main import SamadhiConfig
-from src.configs.adapters import MlpAdapterConfig, CnnAdapterConfig, BaseAdapterConfig
-from src.configs.vicara import StandardVicaraConfig, ProbeVicaraConfig, WeightedVicaraConfig, BaseVicaraConfig
-from src.configs.vitakka import (
+from samadhi.core.builder import SamadhiBuilder
+from samadhi.core.engine import SamadhiEngine
+from samadhi.components.adapters.base import BaseAdapter
+from samadhi.components.adapters.mlp import MlpAdapter
+from samadhi.components.adapters.vision import CnnAdapter
+from samadhi.components.decoders.base import BaseDecoder
+from samadhi.components.decoders.reconstruction import ReconstructionDecoder
+from samadhi.components.decoders.vision import CnnDecoder
+from samadhi.components.vitakka.base import BaseVitakka
+from samadhi.components.vitakka.standard import StandardVitakka
+from samadhi.components.vicara.base import BaseVicara
+from samadhi.components.vicara.standard import StandardVicara
+from samadhi.components.vicara.weighted import WeightedVicara
+from samadhi.components.vicara.probe_specific import ProbeVicara
+from samadhi.components.refiners.mlp import MlpRefiner
+from samadhi.configs.main import SamadhiConfig
+from samadhi.configs.adapters import MlpAdapterConfig, CnnAdapterConfig, BaseAdapterConfig
+from samadhi.configs.vicara import StandardVicaraConfig, ProbeVicaraConfig, WeightedVicaraConfig, BaseVicaraConfig
+from samadhi.configs.vitakka import (
     StandardVitakkaConfig as VitakkaStandardConfig,
     BaseVitakkaConfig,
 )  # Alias to avoid conflict
-from src.configs.decoders import ReconstructionDecoderConfig, CnnDecoderConfig, BaseDecoderConfig
-from src.configs.enums import AdapterType, VicaraType, DecoderType
+from samadhi.configs.decoders import ReconstructionDecoderConfig, CnnDecoderConfig, BaseDecoderConfig
+from samadhi.configs.enums import AdapterType, VicaraType, DecoderType
 
 
 # Mock implementations for testing the builder

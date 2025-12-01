@@ -1,6 +1,6 @@
 import pytest
 import torch
-from src.components.adapters import MlpAdapter
+from samadhi.components.adapters import MlpAdapter
 
 
 def test_mlp_adapter_initialization():

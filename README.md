@@ -63,21 +63,21 @@ The unique properties of the Samadhi Framework make it suitable for tasks requir
 ├── data/               # Datasets
 ├── docs/               # Theoretical specifications and plans
 ├── notebooks/          # Experiments and Analysis (Jupyter)
-├── src/
-│   ├── configs/        # Configuration System ([Details](src/configs/README.md))
+├── samadhi/
+│   ├── configs/        # Configuration System ([Details](samadhi/configs/README.md))
 │   │   ├── main.py     # Root SamadhiConfig
 │   │   ├── factory.py  # Config Factories
 │   │   ├── adapters.py # Adapter Configs
 │   │   └── ...
-│   ├── components/     # Modularized Components ([Details](src/components/README.md))
+│   ├── components/     # Modularized Components ([Details](samadhi/components/README.md))
 │   │   ├── adapters/   # Input Adapters (MLP, CNN, LSTM, Transformer)
 │   │   ├── decoders/   # Output Decoders
 │   │   ├── vitakka/    # Search Modules
 │   │   ├── vicara/     # Refinement Modules
 │   │   └── refiners/   # Core refinement networks (MLP, GRU)
 │   ├── core/           # Core Engine and Builder
-│   ├── presets/        # Factory functions for standard configurations (Tabular, Vision, Sequence) ([Details](src/presets/README.md))
-│   ├── train/          # Training Logic ([Details](src/train/README.md))
+│   ├── presets/        # Factory functions for standard configurations (Tabular, Vision, Sequence) ([Details](samadhi/presets/README.md))
+│   ├── train/          # Training Logic ([Details](samadhi/train/README.md))
 │   │   ├── hf_trainer.py # Hugging Face Trainer Wrapper
 │   │   └── objectives/   # Pluggable Training Objectives
 │   └── utils/          # Utility functions
@@ -87,7 +87,7 @@ The unique properties of the Samadhi Framework make it suitable for tasks requir
 ```
 
 ### Logging
-The Samadhi Framework utilizes a centralized logging system managed by `src/utils/logger.py`. For consistent logging behavior across the project, please refer to the detailed guidelines and setup instructions in [docs/logging.md](docs/logging.md).
+The Samadhi Framework utilizes a centralized logging system managed by `samadhi/utils/logger.py`. For consistent logging behavior across the project, please refer to the detailed guidelines and setup instructions in [docs/logging.md](docs/logging.md).
 
 -----
 
@@ -110,8 +110,8 @@ Easily create a model for your data type using presets. Configuration can be pas
 
 ```python
 import torch
-from src.presets.tabular import create_mlp_samadhi
-from src.configs.main import SamadhiConfig
+from samadhi.presets.tabular import create_mlp_samadhi
+from samadhi.configs.main import SamadhiConfig
 
 # Configuration (Dictionary)
 config_dict = {
@@ -144,10 +144,10 @@ print(f"Reconstructed output shape: {output.shape}")
 Build a custom model by mixing and matching components.
 
 ```python
-from src.core.builder import SamadhiBuilder
-from src.configs.main import SamadhiConfig
-from src.configs.enums import AdapterType, DecoderType
-from src.configs.objectives import ObjectiveConfig
+from samadhi.core.builder import SamadhiBuilder
+from samadhi.configs.main import SamadhiConfig
+from samadhi.configs.enums import AdapterType, DecoderType
+from samadhi.configs.objectives import ObjectiveConfig
 
 # Load config
 config_data = {
@@ -173,9 +173,9 @@ model = SamadhiBuilder(config) \
 Train the model using the Hugging Face compatible Trainer and pluggable Objectives.
 
 ```python
-from src.train import SamadhiTrainer
-from src.train.objectives.unsupervised import UnsupervisedObjective
-from src.configs.main import SamadhiConfig
+from samadhi.train import SamadhiTrainer
+from samadhi.train.objectives.unsupervised import UnsupervisedObjective
+from samadhi.configs.main import SamadhiConfig
 
 # Assuming 'config' is a SamadhiConfig object created previously
 # Define Objective (e.g., Unsupervised Learning: Reconstruction + Stability)
