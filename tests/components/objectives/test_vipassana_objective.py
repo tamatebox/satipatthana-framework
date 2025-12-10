@@ -170,48 +170,78 @@ class TestStabilityLoss:
         loss_fn = StabilityLoss()
         assert loss_fn.device is not None
 
-    def test_empty_santana(self):
-        """Test with empty SantanaLog."""
+    def test_identical_states(self):
+        """Test with identical states (zero loss)."""
         loss_fn = StabilityLoss()
-        santana = SantanaLog()
+        s_T = torch.randn(4, 32)
+        s_T_1 = s_T.clone()  # Same state
+        stability_pair = (s_T, s_T_1)
 
-        loss, components = loss_fn.compute_loss(santana)
+        loss, components = loss_fn.compute_loss(stability_pair)
 
-        assert loss == 0.0
+        assert loss.item() == 0.0
         assert components["stability_loss"] == 0.0
 
-    def test_with_energies(self):
-        """Test with recorded energies."""
+    def test_with_state_difference(self):
+        """Test with different states (non-zero loss)."""
         loss_fn = StabilityLoss()
-        santana = SantanaLog()
+        s_T = torch.randn(4, 32)
+        s_T_1 = torch.randn(4, 32)  # Different state
+        stability_pair = (s_T, s_T_1)
 
-        # Add states with decreasing energies
+        loss, components = loss_fn.compute_loss(stability_pair)
+
+        assert loss.item() > 0
+        assert components["stability_loss"] > 0
+
+    def test_high_vs_low_state_change(self):
+        """Test that large state changes have higher loss."""
+        loss_fn = StabilityLoss()
+
+        # High state change
+        s_T_high = torch.randn(4, 32)
+        s_T_1_high = torch.randn(4, 32) * 10  # Large difference
+        stability_pair_high = (s_T_high, s_T_1_high)
+
+        # Low state change
+        s_T_low = torch.randn(4, 32)
+        s_T_1_low = s_T_low + torch.randn(4, 32) * 0.01  # Small difference
+        stability_pair_low = (s_T_low, s_T_1_low)
+
+        loss_high, _ = loss_fn.compute_loss(stability_pair_high)
+        loss_low, _ = loss_fn.compute_loss(stability_pair_low)
+
+        assert loss_high > loss_low
+
+    def test_gradient_flow(self):
+        """Test that gradients flow through stability loss."""
+        loss_fn = StabilityLoss()
+        s_T = torch.randn(4, 32, requires_grad=True)
+        s_T_1 = torch.randn(4, 32, requires_grad=True)
+        stability_pair = (s_T, s_T_1)
+
+        loss, _ = loss_fn.compute_loss(stability_pair)
+        loss.backward()
+
+        assert s_T.grad is not None
+        assert s_T_1.grad is not None
+
+    def test_with_santana_logging(self):
+        """Test that santana is used for logging only."""
+        loss_fn = StabilityLoss()
+        s_T = torch.randn(4, 32)
+        s_T_1 = torch.randn(4, 32)
+        stability_pair = (s_T, s_T_1)
+
+        # Create santana with energies for logging
+        santana = SantanaLog()
         for i in range(5):
             state = torch.randn(4, 32)
             energy = 1.0 / (i + 1)
             santana.add(state, energy=energy)
 
-        loss, components = loss_fn.compute_loss(santana)
+        loss, components = loss_fn.compute_loss(stability_pair, santana)
 
-        assert loss > 0
-        assert components["total_energy"] > 0
+        # Loss should be based on stability_pair, not santana energies
         assert components["num_steps"] == 5
-
-    def test_high_vs_low_energy(self):
-        """Test that high energy trajectories have higher loss."""
-        loss_fn = StabilityLoss()
-
-        # High energy trajectory
-        santana_high = SantanaLog()
-        for _ in range(5):
-            santana_high.add(torch.randn(4, 32), energy=1.0)
-
-        # Low energy trajectory
-        santana_low = SantanaLog()
-        for _ in range(5):
-            santana_low.add(torch.randn(4, 32), energy=0.1)
-
-        loss_high, _ = loss_fn.compute_loss(santana_high)
-        loss_low, _ = loss_fn.compute_loss(santana_low)
-
-        assert loss_high > loss_low
+        assert components["total_energy"] > 0

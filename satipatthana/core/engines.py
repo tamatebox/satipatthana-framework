@@ -6,7 +6,7 @@ This module contains:
     - VipassanaEngine: The "Observer" - meta-cognition engine
 """
 
-from typing import Tuple, Dict, Any, Optional
+from typing import Tuple, Dict, Any, Optional, NamedTuple
 import torch
 import torch.nn as nn
 
@@ -21,6 +21,15 @@ from satipatthana.configs.system import SamathaConfig, VipassanaEngineConfig
 from satipatthana.utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+
+class SamathaOutput(NamedTuple):
+    """Output from SamathaEngine forward pass."""
+
+    s_star: torch.Tensor  # Converged state (Batch, Dim)
+    santana: SantanaLog  # Thinking trajectory log
+    severity: torch.Tensor  # Noise intensity (Batch,)
+    stability_pair: Tuple[torch.Tensor, torch.Tensor]  # (s_T, s_T_1) with gradients for StabilityLoss
 
 
 class SamathaEngine(nn.Module):
@@ -115,7 +124,7 @@ class SamathaEngine(nn.Module):
         noise_level: float = 0.0,
         run_augmenter: bool = True,
         drunk_mode: bool = False,
-    ) -> Tuple[torch.Tensor, SantanaLog, torch.Tensor]:
+    ) -> SamathaOutput:
         """
         Samatha forward pass: Convergence process.
 
@@ -128,9 +137,11 @@ class SamathaEngine(nn.Module):
             drunk_mode: Enable internal dysfunction mode
 
         Returns:
-            s_star: Converged state (Batch, Dim)
-            santana: SantanaLog containing thinking trajectory
-            severity: Per-sample noise intensity (Batch,)
+            SamathaOutput containing:
+                s_star: Converged state (Batch, Dim)
+                santana: SantanaLog containing thinking trajectory
+                severity: Per-sample noise intensity (Batch,)
+                stability_pair: (s_T, s_T_1) with gradients for StabilityLoss
         """
         batch_size = x.size(0)
         device = x.device
@@ -158,15 +169,22 @@ class SamathaEngine(nn.Module):
             s0 = s0 + torch.randn_like(s0) * 0.1
 
         # 4. Vicara loop with Sati monitoring
-        s_star, santana = self._run_vicara_loop(s0, vitakka_meta)
+        s_star, santana, stability_pair = self._run_vicara_loop(s0, vitakka_meta)
 
         # Store initial state info in santana metadata
         if santana.meta_history:
             santana.meta_history[0]["vitakka"] = vitakka_meta
 
-        return s_star, santana, severity
+        return SamathaOutput(
+            s_star=s_star,
+            santana=santana,
+            severity=severity,
+            stability_pair=stability_pair,
+        )
 
-    def _run_vicara_loop(self, s0: torch.Tensor, vitakka_meta: Dict[str, Any]) -> Tuple[torch.Tensor, SantanaLog]:
+    def _run_vicara_loop(
+        self, s0: torch.Tensor, vitakka_meta: Dict[str, Any]
+    ) -> Tuple[torch.Tensor, SantanaLog, Tuple[torch.Tensor, torch.Tensor]]:
         """
         Execute Vicara loop with Sati monitoring.
 
@@ -177,15 +195,19 @@ class SamathaEngine(nn.Module):
         Returns:
             s_star: Converged state (Batch, Dim)
             santana: Complete trajectory log
+            stability_pair: (s_T, s_T_1) with gradients for StabilityLoss
         """
         santana = SantanaLog()
         s_t = s0
+        s_prev_grad = s0  # Track previous state WITH gradients for StabilityLoss
 
         # Record initial state
         santana.add(s_t, meta={"step": 0, "type": "initial"})
 
         for step in range(self.config.max_steps):
-            s_prev = s_t.clone()
+            s_prev_for_energy = s_t.clone()
+            # Keep previous state with gradients for stability loss
+            s_prev_grad = s_t
 
             # Drunk mode: random skip updates
             if self._drunk_mode and torch.rand(1).item() < 0.2:
@@ -199,10 +221,10 @@ class SamathaEngine(nn.Module):
                 if self._drunk_mode:
                     s_t = s_t + torch.randn_like(s_t) * 0.05
 
-                # Compute energy (state change magnitude)
-                energy = torch.norm(s_t - s_prev, dim=1).mean().item()
+                # Compute energy (state change magnitude) for logging only
+                energy = torch.norm(s_t - s_prev_for_energy, dim=1).mean().item()
 
-            # Record state
+            # Record state (detached internally by SantanaLog)
             santana.add(
                 s_t,
                 meta={"step": step + 1, "type": "refinement"},
@@ -215,7 +237,9 @@ class SamathaEngine(nn.Module):
                 logger.debug(f"Sati stopped at step {step + 1}: {sati_info.get('reason', 'unknown')}")
                 break
 
-        return s_t, santana
+        # Return stability_pair with gradients: (s_T, s_T_1)
+        stability_pair = (s_t, s_prev_grad)
+        return s_t, santana, stability_pair
 
 
 class VipassanaEngine(nn.Module):
@@ -282,4 +306,4 @@ class VipassanaEngine(nn.Module):
         return v_ctx, trust_score
 
 
-__all__ = ["SamathaEngine", "VipassanaEngine"]
+__all__ = ["SamathaEngine", "SamathaOutput", "VipassanaEngine"]

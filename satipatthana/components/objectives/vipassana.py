@@ -194,6 +194,8 @@ class StabilityLoss:
 
     Encourages smooth convergence by penalizing large state changes
     during the Vicara refinement loop.
+
+    Uses stability_pair (s_T, s_T_1) with gradients for differentiable loss.
     """
 
     def __init__(self, device: Optional[str] = None):
@@ -209,36 +211,36 @@ class StabilityLoss:
 
     def compute_loss(
         self,
-        santana,  # SantanaLog
+        stability_pair: Tuple[torch.Tensor, torch.Tensor],
+        santana=None,  # Optional: for logging only
     ) -> Tuple[torch.Tensor, Dict[str, Any]]:
         """
-        Compute stability loss from trajectory.
+        Compute stability loss from stability_pair.
 
         Args:
-            santana: SantanaLog containing state trajectory
+            stability_pair: (s_T, s_T_1) tuple with gradients from SamathaEngine
+            santana: Optional SantanaLog for additional logging info
 
         Returns:
-            loss: Stability loss (mean energy)
+            loss: Stability loss ||s_T - s_T_1||^2 (differentiable)
             loss_components: Dictionary with loss breakdown
         """
-        if len(santana.energies) == 0:
-            return torch.tensor(0.0, device=self.device), {
-                "stability_loss": 0.0,
-                "total_energy": 0.0,
-                "final_energy": 0.0,
-            }
+        s_T, s_T_1 = stability_pair
 
-        # Convert energies to tensor
-        energies = torch.tensor(santana.energies, device=self.device)
-        total_energy = energies.sum()
-        mean_energy = energies.mean()
-        final_energy = energies[-1] if len(energies) > 0 else 0.0
+        # Compute differentiable stability loss: ||s_T - s_T_1||^2
+        diff = s_T - s_T_1
+        stability_loss = torch.norm(diff, dim=1).pow(2).mean()
 
-        return mean_energy, {
-            "stability_loss": mean_energy.item(),
-            "total_energy": total_energy.item(),
-            "final_energy": final_energy.item() if isinstance(final_energy, torch.Tensor) else final_energy,
-            "num_steps": len(santana.energies),
+        # Additional logging info from santana (if provided)
+        num_steps = len(santana.energies) if santana and santana.energies else 0
+        total_energy = sum(santana.energies) if santana and santana.energies else 0.0
+        final_energy = santana.energies[-1] if santana and santana.energies else 0.0
+
+        return stability_loss, {
+            "stability_loss": stability_loss.item(),
+            "total_energy": total_energy,
+            "final_energy": final_energy,
+            "num_steps": num_steps,
         }
 
 

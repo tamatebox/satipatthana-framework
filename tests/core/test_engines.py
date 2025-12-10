@@ -100,17 +100,22 @@ class TestSamathaEngine:
         latent_dim = 32
 
         x = torch.randn(batch_size, input_dim)
-        s_star, santana, severity = samatha_engine(x)
+        output = samatha_engine(x)
 
         # Check s_star shape
-        assert s_star.shape == (batch_size, latent_dim)
+        assert output.s_star.shape == (batch_size, latent_dim)
 
         # Check santana has recorded states
-        assert isinstance(santana, SantanaLog)
-        assert len(santana) > 0
+        assert isinstance(output.santana, SantanaLog)
+        assert len(output.santana) > 0
 
         # Check severity shape
-        assert severity.shape == (batch_size,)
+        assert output.severity.shape == (batch_size,)
+
+        # Check stability_pair
+        s_T, s_T_1 = output.stability_pair
+        assert s_T.shape == (batch_size, latent_dim)
+        assert s_T_1.shape == (batch_size, latent_dim)
 
     def test_convergence_no_noise(self, samatha_engine):
         """Test that engine produces consistent output for same input (no noise)."""
@@ -119,11 +124,11 @@ class TestSamathaEngine:
 
         samatha_engine.eval()
         with torch.no_grad():
-            s_star1, _, _ = samatha_engine(x, noise_level=0.0)
-            s_star2, _, _ = samatha_engine(x, noise_level=0.0)
+            output1 = samatha_engine(x, noise_level=0.0)
+            output2 = samatha_engine(x, noise_level=0.0)
 
         # Same input should produce same output in eval mode
-        assert torch.allclose(s_star1, s_star2, atol=1e-5)
+        assert torch.allclose(output1.s_star, output2.s_star, atol=1e-5)
 
     def test_augmentation_with_noise(self):
         """Test that noise affects the output."""
@@ -155,19 +160,20 @@ class TestSamathaEngine:
 
         x = torch.randn(4, 16)
 
-        _, _, severity_no_noise = engine(x, noise_level=0.0)
-        _, _, severity_with_noise = engine(x, noise_level=0.5)
+        output_no_noise = engine(x, noise_level=0.0)
+        output_with_noise = engine(x, noise_level=0.5)
 
         # Without noise, severity should be 0
-        assert torch.all(severity_no_noise == 0.0)
+        assert torch.all(output_no_noise.severity == 0.0)
 
         # With noise, severity should be non-zero
-        assert torch.all(severity_with_noise > 0.0)
+        assert torch.all(output_with_noise.severity > 0.0)
 
     def test_santana_log_records_trajectory(self, samatha_engine):
         """Test that SantanaLog properly records the trajectory."""
         x = torch.randn(4, 16)
-        _, santana, _ = samatha_engine(x)
+        output = samatha_engine(x)
+        santana = output.santana
 
         # Should have initial state + refinement steps
         # Initial + up to max_steps
@@ -198,15 +204,15 @@ class TestSamathaEngine:
         # Get normal output
         samatha_engine.eval()
         with torch.no_grad():
-            s_normal, santana_normal, _ = samatha_engine(x, drunk_mode=False)
+            output_normal = samatha_engine(x, drunk_mode=False)
 
         # Get drunk mode output (multiple runs should vary due to randomness)
         results = []
         for i in range(3):
             torch.manual_seed(i)  # Different seeds for variation
             with torch.no_grad():
-                s_drunk, _, _ = samatha_engine(x, drunk_mode=True)
-                results.append(s_drunk.clone())
+                output_drunk = samatha_engine(x, drunk_mode=True)
+                results.append(output_drunk.s_star.clone())
 
         # Drunk mode should produce varying outputs with different seeds
         # At least one pair should differ
@@ -263,21 +269,21 @@ class TestSamathaEngine:
         x = torch.randn(4, 16)
         engine.eval()
         with torch.no_grad():
-            _, santana, _ = engine(x)
+            output = engine(x)
 
         # With threshold-based stopping, should stop before max_steps
         # (initial state + some refinement steps, but not all 20)
         # Note: This depends on convergence dynamics
-        assert len(santana) <= config.max_steps + 1
+        assert len(output.santana) <= config.max_steps + 1
 
     def test_vitakka_metadata_stored(self, samatha_engine):
         """Test that Vitakka metadata is stored in SantanaLog."""
         x = torch.randn(4, 16)
-        _, santana, _ = samatha_engine(x)
+        output = samatha_engine(x)
 
         # First meta should contain vitakka info
-        assert "vitakka" in santana.meta_history[0]
-        vitakka_meta = santana.meta_history[0]["vitakka"]
+        assert "vitakka" in output.santana.meta_history[0]
+        vitakka_meta = output.santana.meta_history[0]["vitakka"]
 
         # Check expected keys
         assert "winner_id" in vitakka_meta
@@ -289,21 +295,21 @@ class TestSamathaEngine:
         x = torch.randn(4, 16)
 
         samatha_engine.train()
-        s_star, santana, severity = samatha_engine(x)
+        output = samatha_engine(x)
 
         # Should still produce valid output
-        assert s_star.shape == (4, 32)
-        assert len(santana) > 0
+        assert output.s_star.shape == (4, 32)
+        assert len(output.santana) > 0
 
     def test_gradient_flow(self, samatha_engine):
         """Test that gradients can flow through the engine."""
         x = torch.randn(4, 16, requires_grad=True)
 
         samatha_engine.train()
-        s_star, _, _ = samatha_engine(x)
+        output = samatha_engine(x)
 
         # Compute loss and backprop
-        loss = s_star.sum()
+        loss = output.s_star.sum()
         loss.backward()
 
         # Input should have gradients
@@ -452,13 +458,13 @@ class TestIntegratedFlow:
         x = torch.randn(4, 16)
 
         # Run Samatha
-        s_star, santana, severity = samatha_engine(x)
+        output = samatha_engine(x)
 
         # Run Vipassana on Samatha output
-        v_ctx, trust_score = vipassana_engine(s_star, santana)
+        v_ctx, trust_score = vipassana_engine(output.s_star, output.santana)
 
         # All outputs should be valid
-        assert s_star.shape == (4, 32)
+        assert output.s_star.shape == (4, 32)
         assert v_ctx.shape == (4, 16)
         assert trust_score.shape == (4, 1)
 
@@ -470,16 +476,16 @@ class TestIntegratedFlow:
         # Sober mode
         samatha_engine.eval()
         with torch.no_grad():
-            s_sober, santana_sober, _ = samatha_engine(x, drunk_mode=False)
-            _, trust_sober = vipassana_engine(s_sober, santana_sober)
+            output_sober = samatha_engine(x, drunk_mode=False)
+            _, trust_sober = vipassana_engine(output_sober.s_star, output_sober.santana)
 
         # Multiple drunk mode runs (trust may vary)
         drunk_trusts = []
         for seed in range(5):
             torch.manual_seed(seed)
             with torch.no_grad():
-                s_drunk, santana_drunk, _ = samatha_engine(x, drunk_mode=True)
-                _, trust_drunk = vipassana_engine(s_drunk, santana_drunk)
+                output_drunk = samatha_engine(x, drunk_mode=True)
+                _, trust_drunk = vipassana_engine(output_drunk.s_star, output_drunk.santana)
                 drunk_trusts.append(trust_drunk.mean().item())
 
         # Note: This test verifies that the pipeline works and produces values
@@ -519,17 +525,17 @@ class TestIntegratedFlow:
 
         # Clean path
         torch.manual_seed(42)
-        s_clean, santana_clean, severity_clean = engine(x, noise_level=0.0)
-        v_ctx_clean, trust_clean = vipassana_engine(s_clean, santana_clean)
+        output_clean = engine(x, noise_level=0.0)
+        v_ctx_clean, trust_clean = vipassana_engine(output_clean.s_star, output_clean.santana)
 
         # Noisy path
         torch.manual_seed(42)
-        s_noisy, santana_noisy, severity_noisy = engine(x, noise_level=0.8)
-        v_ctx_noisy, trust_noisy = vipassana_engine(s_noisy, santana_noisy)
+        output_noisy = engine(x, noise_level=0.8)
+        v_ctx_noisy, trust_noisy = vipassana_engine(output_noisy.s_star, output_noisy.santana)
 
         # Verify severity reflects noise level
-        assert torch.all(severity_clean == 0.0)
-        assert torch.all(severity_noisy > 0.0)
+        assert torch.all(output_clean.severity == 0.0)
+        assert torch.all(output_noisy.severity > 0.0)
 
         # Both should produce valid context and trust
         assert v_ctx_clean.shape == (4, 16)
