@@ -13,9 +13,7 @@ from samadhi.configs.augmenter import IdentityAugmenterConfig
 class MockAugmenter(BaseAugmenter):
     """Mock implementation of BaseAugmenter for testing."""
 
-    def forward(
-        self, x: torch.Tensor, noise_level: float = 0.0
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor, noise_level: float = 0.0) -> Tuple[torch.Tensor, torch.Tensor]:
         """Identity augmentation for testing."""
         batch_size = x.size(0)
         severity = torch.full((batch_size,), noise_level)

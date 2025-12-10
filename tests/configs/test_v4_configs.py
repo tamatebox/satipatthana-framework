@@ -109,9 +109,7 @@ class TestVipassanaConfig:
 
     def test_lstm_vipassana_custom(self):
         """Test LSTMVipassanaConfig with custom values."""
-        config = LSTMVipassanaConfig(
-            context_dim=64, hidden_dim=128, num_layers=2, bidirectional=True
-        )
+        config = LSTMVipassanaConfig(context_dim=64, hidden_dim=128, num_layers=2, bidirectional=True)
         assert config.context_dim == 64
         assert config.hidden_dim == 128
         assert config.num_layers == 2
@@ -163,9 +161,7 @@ class TestSystemConfig:
                 augmenter=GaussianNoiseAugmenterConfig(max_noise_std=0.2),
                 sati=ThresholdSatiConfig(energy_threshold=0.001),
             ),
-            vipassana=VipassanaEngineConfig(
-                vipassana=LSTMVipassanaConfig(hidden_dim=128, num_layers=2)
-            ),
+            vipassana=VipassanaEngineConfig(vipassana=LSTMVipassanaConfig(hidden_dim=128, num_layers=2)),
         )
 
         assert config.dim == 128

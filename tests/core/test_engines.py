@@ -70,9 +70,7 @@ def samatha_engine(default_config):
 @pytest.fixture
 def vipassana_config():
     """Default VipassanaEngineConfig for testing."""
-    return VipassanaEngineConfig(
-        vipassana=StandardVipassanaConfig(context_dim=16, hidden_dim=32)
-    )
+    return VipassanaEngineConfig(vipassana=StandardVipassanaConfig(context_dim=16, hidden_dim=32))
 
 
 @pytest.fixture

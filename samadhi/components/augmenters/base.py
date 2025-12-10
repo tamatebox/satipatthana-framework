@@ -34,9 +34,7 @@ class BaseAugmenter(nn.Module, ABC):
         self.config = config
 
     @abstractmethod
-    def forward(
-        self, x: torch.Tensor, noise_level: float = 0.0
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor, noise_level: float = 0.0) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Apply augmentation to input.
 

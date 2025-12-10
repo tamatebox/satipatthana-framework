@@ -164,25 +164,19 @@ class TestProbeVicaraStep:
 
     def test_step_soft_mode(self, probe_config):
         """Test step() in soft attention mode."""
-        refiners = nn.ModuleList(
-            [MockRefiner(probe_config) for _ in range(probe_config["n_probes"])]
-        )
+        refiners = nn.ModuleList([MockRefiner(probe_config) for _ in range(probe_config["n_probes"])])
         vicara = ProbeVicara(probe_config, refiners)
         vicara.train()
 
         s_t = torch.randn(4, probe_config["dim"])
-        context = {
-            "probs": torch.softmax(torch.randn(4, probe_config["n_probes"]), dim=1)
-        }
+        context = {"probs": torch.softmax(torch.randn(4, probe_config["n_probes"]), dim=1)}
 
         s_next = vicara.step(s_t, context)
         assert s_next.shape == s_t.shape
 
     def test_step_hard_mode(self, probe_config):
         """Test step() in hard attention mode."""
-        refiners = nn.ModuleList(
-            [MockRefiner(probe_config) for _ in range(probe_config["n_probes"])]
-        )
+        refiners = nn.ModuleList([MockRefiner(probe_config) for _ in range(probe_config["n_probes"])])
         vicara = ProbeVicara(probe_config, refiners)
         vicara.eval()
 

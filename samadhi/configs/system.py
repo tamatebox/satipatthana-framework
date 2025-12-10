@@ -30,9 +30,7 @@ class SamathaConfig(BaseConfig):
     max_steps: int = 10  # Maximum Vicara loop iterations
 
     # Component configs
-    adapter: BaseAdapterConfig = field(
-        default_factory=lambda: MlpAdapterConfig(input_dim=10)
-    )
+    adapter: BaseAdapterConfig = field(default_factory=lambda: MlpAdapterConfig(input_dim=10))
     augmenter: BaseAugmenterConfig = field(default_factory=IdentityAugmenterConfig)
     vitakka: BaseVitakkaConfig = field(default_factory=StandardVitakkaConfig)
     vicara: BaseVicaraConfig = field(default_factory=StandardVicaraConfig)
@@ -68,9 +66,7 @@ class SystemConfig(BaseConfig):
     vipassana: VipassanaEngineConfig = field(default_factory=VipassanaEngineConfig)
 
     # --- Task Decoder Config ---
-    task_decoder: BaseDecoderConfig = field(
-        default_factory=lambda: ReconstructionDecoderConfig(input_dim=10)
-    )
+    task_decoder: BaseDecoderConfig = field(default_factory=lambda: ReconstructionDecoderConfig(input_dim=10))
 
     # --- Reconstruction Heads ---
     adapter_recon_head: Optional[BaseDecoderConfig] = None

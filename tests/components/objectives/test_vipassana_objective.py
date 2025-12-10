@@ -98,12 +98,14 @@ class TestGuidanceLoss:
         """Test classification loss computation."""
         loss_fn = GuidanceLoss(task_type="classification")
 
-        aux_output = torch.tensor([
-            [2.0, 0.5, 0.1],
-            [0.1, 2.0, 0.5],
-            [0.5, 0.1, 2.0],
-            [1.5, 0.5, 0.1],
-        ])
+        aux_output = torch.tensor(
+            [
+                [2.0, 0.5, 0.1],
+                [0.1, 2.0, 0.5],
+                [0.5, 0.1, 2.0],
+                [1.5, 0.5, 0.1],
+            ]
+        )
         targets = torch.tensor([0, 1, 2, 0])
 
         loss, components = loss_fn.compute_loss(aux_output, targets)
@@ -118,12 +120,14 @@ class TestGuidanceLoss:
         """Test classification with wrong predictions."""
         loss_fn = GuidanceLoss(task_type="classification")
 
-        aux_output = torch.tensor([
-            [0.1, 2.0, 0.5],  # Predicts 1, target 0 -> WRONG
-            [0.1, 0.5, 2.0],  # Predicts 2, target 1 -> WRONG
-            [2.0, 0.1, 0.5],  # Predicts 0, target 2 -> WRONG
-            [0.5, 2.0, 0.1],  # Predicts 1, target 0 -> WRONG
-        ])
+        aux_output = torch.tensor(
+            [
+                [0.1, 2.0, 0.5],  # Predicts 1, target 0 -> WRONG
+                [0.1, 0.5, 2.0],  # Predicts 2, target 1 -> WRONG
+                [2.0, 0.1, 0.5],  # Predicts 0, target 2 -> WRONG
+                [0.5, 2.0, 0.1],  # Predicts 1, target 0 -> WRONG
+            ]
+        )
         targets = torch.tensor([0, 1, 2, 0])
 
         loss, components = loss_fn.compute_loss(aux_output, targets)

@@ -35,9 +35,7 @@ class BaseVipassana(nn.Module, ABC):
         self.config = config
 
     @abstractmethod
-    def forward(
-        self, s_star: torch.Tensor, santana: SantanaLog
-    ) -> Tuple[torch.Tensor, float]:
+    def forward(self, s_star: torch.Tensor, santana: SantanaLog) -> Tuple[torch.Tensor, float]:
         """
         Analyze the thinking process and produce confidence metrics.
 

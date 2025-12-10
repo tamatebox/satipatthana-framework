@@ -19,9 +19,7 @@ class MockVipassana(BaseVipassana):
         # Simple encoder: average pooling over trajectory + MLP
         self.encoder = torch.nn.Linear(config.context_dim, config.context_dim)
 
-    def forward(
-        self, s_star: torch.Tensor, santana: SantanaLog
-    ) -> Tuple[torch.Tensor, float]:
+    def forward(self, s_star: torch.Tensor, santana: SantanaLog) -> Tuple[torch.Tensor, float]:
         """
         Mock implementation that produces context and trust score.
         """
@@ -131,9 +129,7 @@ class TestBaseVipassana:
 
     def test_lstm_config(self):
         """Test LSTMVipassanaConfig can be used."""
-        config = LSTMVipassanaConfig(
-            context_dim=32, hidden_dim=64, num_layers=2, bidirectional=True
-        )
+        config = LSTMVipassanaConfig(context_dim=32, hidden_dim=64, num_layers=2, bidirectional=True)
         vipassana = MockVipassana(config)
 
         assert vipassana.config.num_layers == 2

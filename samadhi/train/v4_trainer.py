@@ -117,10 +117,7 @@ class SamadhiV4Trainer(Trainer):
         self.guidance_loss = GuidanceLoss(task_type=task_type)
         self.stability_loss = StabilityLoss()
         self.recon_loss_fn = nn.MSELoss()
-        self.task_loss_fn = (
-            nn.CrossEntropyLoss() if task_type == "classification"
-            else nn.MSELoss()
-        )
+        self.task_loss_fn = nn.CrossEntropyLoss() if task_type == "classification" else nn.MSELoss()
         self.task_type = task_type
 
         # Set initial stage
@@ -206,9 +203,7 @@ class SamadhiV4Trainer(Trainer):
             return loss, outputs
         return loss
 
-    def _compute_stage0_loss(
-        self, model: SamadhiSystem, x: torch.Tensor
-    ) -> Tuple[torch.Tensor, Dict[str, Any]]:
+    def _compute_stage0_loss(self, model: SamadhiSystem, x: torch.Tensor) -> Tuple[torch.Tensor, Dict[str, Any]]:
         """
         Stage 0: Adapter Pre-training.
 
@@ -273,9 +268,7 @@ class SamadhiV4Trainer(Trainer):
         logger.debug(f"Stage 1 loss: {total_loss.item():.4f}, components: {loss_components}")
         return total_loss, outputs
 
-    def _compute_stage2_loss(
-        self, model: SamadhiSystem, x: torch.Tensor
-    ) -> Tuple[torch.Tensor, Dict[str, Any]]:
+    def _compute_stage2_loss(self, model: SamadhiSystem, x: torch.Tensor) -> Tuple[torch.Tensor, Dict[str, Any]]:
         """
         Stage 2: Vipassana Training.
 
@@ -400,12 +393,7 @@ class SamadhiV4Trainer(Trainer):
         logger.debug(f"Stage 3 loss: {loss.item():.4f}")
         return loss, outputs
 
-    def train_stage(
-        self,
-        stage: TrainingStage,
-        num_epochs: int = 1,
-        **kwargs
-    ):
+    def train_stage(self, stage: TrainingStage, num_epochs: int = 1, **kwargs):
         """
         Convenience method to train a specific stage.
 
@@ -431,12 +419,7 @@ class SamadhiV4Trainer(Trainer):
         return result
 
     def run_curriculum(
-        self,
-        stage0_epochs: int = 0,
-        stage1_epochs: int = 10,
-        stage2_epochs: int = 5,
-        stage3_epochs: int = 5,
-        **kwargs
+        self, stage0_epochs: int = 0, stage1_epochs: int = 10, stage2_epochs: int = 5, stage3_epochs: int = 5, **kwargs
     ):
         """
         Run the full 4-stage curriculum.
@@ -455,35 +438,19 @@ class SamadhiV4Trainer(Trainer):
 
         if stage0_epochs > 0:
             logger.info("=== Stage 0: Adapter Pre-training ===")
-            results["stage0"] = self.train_stage(
-                TrainingStage.ADAPTER_PRETRAINING,
-                num_epochs=stage0_epochs,
-                **kwargs
-            )
+            results["stage0"] = self.train_stage(TrainingStage.ADAPTER_PRETRAINING, num_epochs=stage0_epochs, **kwargs)
 
         if stage1_epochs > 0:
             logger.info("=== Stage 1: Samatha Training ===")
-            results["stage1"] = self.train_stage(
-                TrainingStage.SAMATHA_TRAINING,
-                num_epochs=stage1_epochs,
-                **kwargs
-            )
+            results["stage1"] = self.train_stage(TrainingStage.SAMATHA_TRAINING, num_epochs=stage1_epochs, **kwargs)
 
         if stage2_epochs > 0:
             logger.info("=== Stage 2: Vipassana Training ===")
-            results["stage2"] = self.train_stage(
-                TrainingStage.VIPASSANA_TRAINING,
-                num_epochs=stage2_epochs,
-                **kwargs
-            )
+            results["stage2"] = self.train_stage(TrainingStage.VIPASSANA_TRAINING, num_epochs=stage2_epochs, **kwargs)
 
         if stage3_epochs > 0:
             logger.info("=== Stage 3: Decoder Fine-tuning ===")
-            results["stage3"] = self.train_stage(
-                TrainingStage.DECODER_FINETUNING,
-                num_epochs=stage3_epochs,
-                **kwargs
-            )
+            results["stage3"] = self.train_stage(TrainingStage.DECODER_FINETUNING, num_epochs=stage3_epochs, **kwargs)
 
         # Set to inference mode after training
         self.set_stage(TrainingStage.INFERENCE)

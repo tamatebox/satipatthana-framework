@@ -14,9 +14,7 @@ from samadhi.configs.sati import FixedStepSatiConfig, ThresholdSatiConfig
 class MockFixedStepSati(BaseSati):
     """Mock implementation that never stops early."""
 
-    def forward(
-        self, current_state: torch.Tensor, santana: SantanaLog
-    ) -> Tuple[bool, Dict[str, Any]]:
+    def forward(self, current_state: torch.Tensor, santana: SantanaLog) -> Tuple[bool, Dict[str, Any]]:
         """Never stop - let the loop run to max_steps."""
         return False, {"reason": "fixed_step"}
 
@@ -24,9 +22,7 @@ class MockFixedStepSati(BaseSati):
 class MockThresholdSati(BaseSati):
     """Mock implementation that stops when energy is low."""
 
-    def forward(
-        self, current_state: torch.Tensor, santana: SantanaLog
-    ) -> Tuple[bool, Dict[str, Any]]:
+    def forward(self, current_state: torch.Tensor, santana: SantanaLog) -> Tuple[bool, Dict[str, Any]]:
         """Stop when final energy is below threshold."""
         if not santana.energies:
             return False, {"reason": "no_energy_data"}

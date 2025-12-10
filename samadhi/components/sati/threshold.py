@@ -24,9 +24,7 @@ class ThresholdSati(BaseSati):
             config = ThresholdSatiConfig()
         super().__init__(config)
 
-    def forward(
-        self, current_state: torch.Tensor, santana: SantanaLog
-    ) -> Tuple[bool, Dict[str, Any]]:
+    def forward(self, current_state: torch.Tensor, santana: SantanaLog) -> Tuple[bool, Dict[str, Any]]:
         """
         Check if energy is below threshold for early stopping.
 

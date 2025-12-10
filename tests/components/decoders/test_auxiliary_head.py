@@ -119,9 +119,7 @@ class TestSimpleAuxHead:
         aux_config = SimpleAuxHeadConfig(dim=64, output_dim=10, decoder_hidden_dim=64)
         aux_head = SimpleAuxHead(aux_config)
 
-        cond_config = ConditionalDecoderConfig(
-            dim=64, context_dim=32, output_dim=10, decoder_hidden_dim=128
-        )
+        cond_config = ConditionalDecoderConfig(dim=64, context_dim=32, output_dim=10, decoder_hidden_dim=128)
         cond_decoder = ConditionalDecoder(cond_config)
 
         aux_params = sum(p.numel() for p in aux_head.parameters())

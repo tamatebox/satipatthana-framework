@@ -23,9 +23,7 @@ class TestConditionalDecoder:
 
     def test_custom_config(self):
         """Test initialization with custom config."""
-        config = ConditionalDecoderConfig(
-            dim=128, context_dim=64, output_dim=5, decoder_hidden_dim=256
-        )
+        config = ConditionalDecoderConfig(dim=128, context_dim=64, output_dim=5, decoder_hidden_dim=256)
         decoder = ConditionalDecoder(config)
 
         assert decoder.dim == 128

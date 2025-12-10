@@ -176,9 +176,7 @@ class SamadhiSystem(nn.Module):
         dtype = x.dtype
 
         # 1. Samatha: Convergence
-        s_star, santana, severity = self.samatha(
-            x, noise_level=noise_level, drunk_mode=drunk_mode
-        )
+        s_star, santana, severity = self.samatha(x, noise_level=noise_level, drunk_mode=drunk_mode)
 
         # 2. Vipassana: Introspection (optional)
         if run_vipassana:
@@ -303,9 +301,7 @@ class SamadhiSystem(nn.Module):
         """
         # Run Samatha (frozen in Stage 2)
         with torch.no_grad():
-            s_star, santana, severity = self.samatha(
-                x, noise_level=noise_level, drunk_mode=drunk_mode
-            )
+            s_star, santana, severity = self.samatha(x, noise_level=noise_level, drunk_mode=drunk_mode)
 
         # Run Vipassana (trainable)
         v_ctx, trust_score = self.vipassana(s_star, santana)

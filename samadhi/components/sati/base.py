@@ -35,9 +35,7 @@ class BaseSati(nn.Module, ABC):
         self.config = config
 
     @abstractmethod
-    def forward(
-        self, current_state: torch.Tensor, santana: SantanaLog
-    ) -> Tuple[bool, Dict[str, Any]]:
+    def forward(self, current_state: torch.Tensor, santana: SantanaLog) -> Tuple[bool, Dict[str, Any]]:
         """
         Evaluate whether to stop the Vicara loop.
 

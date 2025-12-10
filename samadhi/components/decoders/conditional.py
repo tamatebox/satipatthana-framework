@@ -58,9 +58,7 @@ class ConditionalDecoder(BaseDecoder):
         """
         return self.net(s_and_ctx)
 
-    def forward_with_concat(
-        self, s_star: torch.Tensor, v_ctx: torch.Tensor
-    ) -> torch.Tensor:
+    def forward_with_concat(self, s_star: torch.Tensor, v_ctx: torch.Tensor) -> torch.Tensor:
         """
         Convenience method that handles concatenation.
 

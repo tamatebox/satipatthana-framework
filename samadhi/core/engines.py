@@ -166,9 +166,7 @@ class SamathaEngine(nn.Module):
 
         return s_star, santana, severity
 
-    def _run_vicara_loop(
-        self, s0: torch.Tensor, vitakka_meta: Dict[str, Any]
-    ) -> Tuple[torch.Tensor, SantanaLog]:
+    def _run_vicara_loop(self, s0: torch.Tensor, vitakka_meta: Dict[str, Any]) -> Tuple[torch.Tensor, SantanaLog]:
         """
         Execute Vicara loop with Sati monitoring.
 
@@ -214,9 +212,7 @@ class SamathaEngine(nn.Module):
             # Check stopping condition via Sati
             should_stop, sati_info = self.sati(s_t, santana)
             if should_stop:
-                logger.debug(
-                    f"Sati stopped at step {step + 1}: {sati_info.get('reason', 'unknown')}"
-                )
+                logger.debug(f"Sati stopped at step {step + 1}: {sati_info.get('reason', 'unknown')}")
                 break
 
         return s_t, santana

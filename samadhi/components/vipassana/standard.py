@@ -60,9 +60,7 @@ class StandardVipassana(BaseVipassana):
             nn.Sigmoid(),
         )
 
-    def forward(
-        self, s_star: torch.Tensor, santana: SantanaLog
-    ) -> Tuple[torch.Tensor, float]:
+    def forward(self, s_star: torch.Tensor, santana: SantanaLog) -> Tuple[torch.Tensor, float]:
         """
         Analyze the thinking process and produce context vector and trust score.
 
@@ -101,9 +99,7 @@ class StandardVipassana(BaseVipassana):
         else:
             avg_energy = 0.0
 
-        avg_energy_tensor = torch.full(
-            (batch_size, 1), avg_energy, device=device, dtype=dtype
-        )
+        avg_energy_tensor = torch.full((batch_size, 1), avg_energy, device=device, dtype=dtype)
 
         # Build feature vector: [s_star, velocity_norm, avg_energy]
         features = torch.cat([s_star, velocity, avg_energy_tensor], dim=1)

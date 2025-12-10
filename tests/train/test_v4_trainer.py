@@ -75,9 +75,7 @@ def system_config():
             vicara=StandardVicaraConfig(dim=LATENT_DIM, refine_steps=3),
             sati=FixedStepSatiConfig(),
         ),
-        vipassana=VipassanaEngineConfig(
-            vipassana=StandardVipassanaConfig(context_dim=CONTEXT_DIM, hidden_dim=32)
-        ),
+        vipassana=VipassanaEngineConfig(vipassana=StandardVipassanaConfig(context_dim=CONTEXT_DIM, hidden_dim=32)),
         task_decoder=ConditionalDecoderConfig(
             dim=LATENT_DIM,
             context_dim=CONTEXT_DIM,
@@ -113,17 +111,11 @@ def system_full(system_config):
 
     task_decoder = ConditionalDecoder(system_config.task_decoder)
 
-    adapter_recon_head = ReconstructionDecoder(ReconstructionDecoderConfig(
-        dim=LATENT_DIM, input_dim=INPUT_DIM
-    ))
+    adapter_recon_head = ReconstructionDecoder(ReconstructionDecoderConfig(dim=LATENT_DIM, input_dim=INPUT_DIM))
 
-    samatha_recon_head = ReconstructionDecoder(ReconstructionDecoderConfig(
-        dim=LATENT_DIM, input_dim=INPUT_DIM
-    ))
+    samatha_recon_head = ReconstructionDecoder(ReconstructionDecoderConfig(dim=LATENT_DIM, input_dim=INPUT_DIM))
 
-    auxiliary_head = SimpleAuxHead(SimpleAuxHeadConfig(
-        dim=LATENT_DIM, output_dim=OUTPUT_DIM
-    ))
+    auxiliary_head = SimpleAuxHead(SimpleAuxHeadConfig(dim=LATENT_DIM, output_dim=OUTPUT_DIM))
 
     return SamadhiSystem(
         config=system_config,

@@ -58,9 +58,7 @@ def system_config():
             vicara=StandardVicaraConfig(dim=LATENT_DIM, refine_steps=5),
             sati=FixedStepSatiConfig(),
         ),
-        vipassana=VipassanaEngineConfig(
-            vipassana=StandardVipassanaConfig(context_dim=CONTEXT_DIM, hidden_dim=32)
-        ),
+        vipassana=VipassanaEngineConfig(vipassana=StandardVipassanaConfig(context_dim=CONTEXT_DIM, hidden_dim=32)),
         task_decoder=ConditionalDecoderConfig(
             dim=LATENT_DIM,
             context_dim=CONTEXT_DIM,
@@ -107,19 +105,23 @@ def task_decoder(system_config):
 @pytest.fixture
 def recon_decoder():
     """Create ReconstructionDecoder for testing."""
-    return ReconstructionDecoder(ReconstructionDecoderConfig(
-        dim=LATENT_DIM,
-        input_dim=INPUT_DIM,
-    ))
+    return ReconstructionDecoder(
+        ReconstructionDecoderConfig(
+            dim=LATENT_DIM,
+            input_dim=INPUT_DIM,
+        )
+    )
 
 
 @pytest.fixture
 def aux_head():
     """Create SimpleAuxHead for testing."""
-    return SimpleAuxHead(SimpleAuxHeadConfig(
-        dim=LATENT_DIM,
-        output_dim=OUTPUT_DIM,
-    ))
+    return SimpleAuxHead(
+        SimpleAuxHeadConfig(
+            dim=LATENT_DIM,
+            output_dim=OUTPUT_DIM,
+        )
+    )
 
 
 @pytest.fixture
@@ -142,9 +144,7 @@ def system_full(system_config, samatha_engine, vipassana_engine, task_decoder, r
         vipassana=vipassana_engine,
         task_decoder=task_decoder,
         adapter_recon_head=recon_decoder,
-        samatha_recon_head=ReconstructionDecoder(ReconstructionDecoderConfig(
-            dim=LATENT_DIM, input_dim=INPUT_DIM
-        )),
+        samatha_recon_head=ReconstructionDecoder(ReconstructionDecoderConfig(dim=LATENT_DIM, input_dim=INPUT_DIM)),
         auxiliary_head=aux_head,
     )
 
@@ -233,7 +233,9 @@ class TestTrainingStages:
         assert "vipassana" not in trainable
         assert "task_decoder" not in trainable
 
-    def test_set_stage_samatha_with_label_guidance(self, system_config, samatha_engine, vipassana_engine, task_decoder, aux_head):
+    def test_set_stage_samatha_with_label_guidance(
+        self, system_config, samatha_engine, vipassana_engine, task_decoder, aux_head
+    ):
         """Test Stage 1 with label guidance enabled."""
         system_config.use_label_guidance = True
         system = SamadhiSystem(
@@ -309,7 +311,9 @@ class TestStageForwardPasses:
         assert result["s_star"].shape == (BATCH_SIZE, LATENT_DIM)
         assert result["x_recon"].shape == (BATCH_SIZE, INPUT_DIM)
 
-    def test_forward_stage1_with_label_guidance(self, system_config, samatha_engine, vipassana_engine, task_decoder, aux_head):
+    def test_forward_stage1_with_label_guidance(
+        self, system_config, samatha_engine, vipassana_engine, task_decoder, aux_head
+    ):
         """Test Stage 1 with label guidance."""
         system_config.use_label_guidance = True
         system = SamadhiSystem(

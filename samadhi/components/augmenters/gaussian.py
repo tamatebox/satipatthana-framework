@@ -22,9 +22,7 @@ class GaussianNoiseAugmenter(BaseAugmenter):
             config = GaussianNoiseAugmenterConfig()
         super().__init__(config)
 
-    def forward(
-        self, x: torch.Tensor, noise_level: float = 0.0
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor, noise_level: float = 0.0) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Apply Gaussian noise to input.
 
