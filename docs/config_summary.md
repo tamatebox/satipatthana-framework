@@ -94,13 +94,40 @@ VipassanaEngine（内省エンジン）の構成を定義します。
 
 初期状態（$S_0$）の生成とプローブの管理を制御します。
 
-### `VitakkaConfig`
+### `BaseVitakkaConfig`
 
 | 属性 | デフォルト値 | 必須 | 説明 |
 | :--- | :--- | :--- | :--- |
-| **`num_probes`** | `16` | いいえ | 概念プローブの数 |
-| **`temperature`** | `0.2` | いいえ | Softmaxの温度パラメータ（低いほど一境性） |
-| **`trainable`** | `True` | いいえ | プローブが学習可能かどうか |
+| **`dim`** | `64` | いいえ | 潜在状態ベクトルの次元 |
+| **`n_probes`** | `10` | いいえ | 概念プローブの数 |
+| **`probe_trainable`** | `True` | いいえ | プローブが学習可能かどうか |
+| **`training_attention_mode`** | `"soft"` | いいえ | 学習時のアテンションモード（`"soft"` or `"hard"`） |
+| **`prediction_attention_mode`** | `"hard"` | いいえ | 推論時のアテンションモード（`"soft"` or `"hard"`） |
+
+### `StandardVitakkaConfig`
+
+| 属性 | デフォルト値 | 必須 | 説明 |
+| :--- | :--- | :--- | :--- |
+| **`gate_threshold`** | `0.6` | いいえ | ゲート開閉の閾値（下記の重要事項を参照） |
+| **`mix_alpha`** | `0.5` | いいえ | 入力とプローブの混合比率 |
+| **`softmax_temp`** | `0.2` | いいえ | Softmaxの温度パラメータ（低いほど一境性） |
+
+> **⚠️ 重要: `gate_threshold` の学習時設定**
+>
+> `gate_threshold` のデフォルト値 `0.6` は**推論時**を想定した値です。
+> **学習時は `-1.0` に設定することを強く推奨します。**
+>
+> ```python
+> vitakka_config = StandardVitakkaConfig(
+>     dim=64,
+>     n_probes=10,
+>     gate_threshold=-1.0,  # 学習中は常にゲートを開く
+> )
+> ```
+>
+> **理由:** 学習初期はプローブがランダムなため、入力との類似度が閾値を超えることがほとんどありません。
+> ゲートが閉じると `s0 ≈ 0` となり、勾配が流れずプローブが学習できなくなります。
+> 詳細は [docs/issues/001_training_issues_v4.md](issues/001_training_issues_v4.md) の Issue 4 を参照してください。
 
 ## 7. Vicara設定 (`satipatthana/configs/vicara.py`)
 
