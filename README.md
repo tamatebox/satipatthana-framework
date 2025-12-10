@@ -179,11 +179,14 @@ It implements Buddhist psychology concepts as engineering modules:
 │   ├── configs/        # Type-safe configuration system
 │   ├── components/     # Modular components
 │   │   ├── adapters/   # Input adapters (MLP, CNN, LSTM, Transformer)
+│   │   ├── augmenters/ # Input augmentation (Identity, Gaussian)
 │   │   ├── vitakka/    # Semantic initialization
 │   │   ├── vicara/     # Refinement modules
+│   │   ├── refiners/   # Core refinement networks (MLP, GRU)
 │   │   ├── sati/       # Convergence monitors
 │   │   ├── vipassana/  # Meta-cognition
-│   │   └── decoders/   # Output decoders
+│   │   ├── decoders/   # Output decoders
+│   │   └── objectives/ # Training objectives
 │   ├── core/           # SamathaEngine, VipassanaEngine, SatipatthanaSystem
 │   └── train/          # 4-Stage curriculum trainer
 ├── tests/              # Unit tests
