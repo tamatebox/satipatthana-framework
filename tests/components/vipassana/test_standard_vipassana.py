@@ -47,7 +47,8 @@ class TestStandardVipassana:
         v_ctx, trust_score = vipassana(s_star, santana)
 
         assert v_ctx.shape == (batch_size, 32)
-        assert isinstance(trust_score, float)
+        assert isinstance(trust_score, torch.Tensor)
+        assert trust_score.shape == (batch_size, 1)
 
     def test_trust_score_in_valid_range(self):
         """Test that trust score is in [0.0, 1.0] range."""
@@ -60,7 +61,7 @@ class TestStandardVipassana:
         s_star = torch.randn(4, 32)
         _, trust_score = vipassana(s_star, santana)
 
-        assert 0.0 <= trust_score <= 1.0
+        assert (trust_score >= 0.0).all() and (trust_score <= 1.0).all()
 
     def test_handles_empty_santana(self):
         """Test behavior with empty SantanaLog."""
@@ -72,7 +73,7 @@ class TestStandardVipassana:
         v_ctx, trust_score = vipassana(s_star, santana)
 
         assert v_ctx.shape == (4, 32)
-        assert 0.0 <= trust_score <= 1.0
+        assert (trust_score >= 0.0).all() and (trust_score <= 1.0).all()
 
     def test_handles_single_step(self):
         """Test with single step in trajectory."""
@@ -86,7 +87,7 @@ class TestStandardVipassana:
         v_ctx, trust_score = vipassana(s_star, santana)
 
         assert v_ctx.shape == (4, 32)
-        assert 0.0 <= trust_score <= 1.0
+        assert (trust_score >= 0.0).all() and (trust_score <= 1.0).all()
 
     def test_handles_long_trajectory(self):
         """Test with long trajectory."""
@@ -101,7 +102,7 @@ class TestStandardVipassana:
         v_ctx, trust_score = vipassana(s_star, santana)
 
         assert v_ctx.shape == (4, 32)
-        assert 0.0 <= trust_score <= 1.0
+        assert (trust_score >= 0.0).all() and (trust_score <= 1.0).all()
 
     def test_context_dim_customizable(self):
         """Test that context_dim config is respected."""
@@ -131,7 +132,8 @@ class TestStandardVipassana:
             v_ctx, trust_score = vipassana(s_star, santana)
 
             assert v_ctx.shape == (batch_size, 32)
-            assert 0.0 <= trust_score <= 1.0
+            assert trust_score.shape == (batch_size, 1)
+            assert (trust_score >= 0.0).all() and (trust_score <= 1.0).all()
 
     def test_different_state_dims(self):
         """Test with various state dimensions."""
@@ -146,7 +148,8 @@ class TestStandardVipassana:
             v_ctx, trust_score = vipassana(s_star, santana)
 
             assert v_ctx.shape == (4, 32)
-            assert 0.0 <= trust_score <= 1.0
+            assert trust_score.shape == (4, 1)
+            assert (trust_score >= 0.0).all() and (trust_score <= 1.0).all()
 
     def test_velocity_computed_from_trajectory(self):
         """Test that velocity is computed from trajectory movement."""

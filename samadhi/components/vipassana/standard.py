@@ -5,7 +5,7 @@ Uses mean/variance aggregation across the trajectory to produce
 a context vector and trust score.
 """
 
-from typing import Tuple
+from typing import Tuple, Union
 import torch
 import torch.nn as nn
 
@@ -60,7 +60,7 @@ class StandardVipassana(BaseVipassana):
             nn.Sigmoid(),
         )
 
-    def forward(self, s_star: torch.Tensor, santana: SantanaLog) -> Tuple[torch.Tensor, float]:
+    def forward(self, s_star: torch.Tensor, santana: SantanaLog) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Analyze the thinking process and produce context vector and trust score.
 
@@ -70,7 +70,7 @@ class StandardVipassana(BaseVipassana):
 
         Returns:
             v_ctx: Context vector (Batch, context_dim) - embedding of "doubt"
-            trust_score: Scalar confidence score (0.0-1.0)
+            trust_score: Confidence tensor (Batch, 1) for external control
         """
         batch_size, state_dim = s_star.shape
         device = s_star.device
@@ -107,8 +107,7 @@ class StandardVipassana(BaseVipassana):
         # Encode to context vector
         v_ctx = self._encoder(features)
 
-        # Compute trust score (batch-wise then aggregate)
-        trust_per_sample = self._trust_head(features)  # (Batch, 1)
-        trust_score = trust_per_sample.mean().item()  # Scalar
+        # Compute trust score (batch-wise tensor)
+        trust_score = self._trust_head(features)  # (Batch, 1)
 
         return v_ctx, trust_score

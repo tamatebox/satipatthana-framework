@@ -6,7 +6,7 @@ determine the quality and confidence of the Samatha convergence.
 """
 
 from abc import ABC, abstractmethod
-from typing import Tuple
+from typing import Tuple, Union
 import torch
 import torch.nn as nn
 
@@ -35,7 +35,7 @@ class BaseVipassana(nn.Module, ABC):
         self.config = config
 
     @abstractmethod
-    def forward(self, s_star: torch.Tensor, santana: SantanaLog) -> Tuple[torch.Tensor, float]:
+    def forward(self, s_star: torch.Tensor, santana: SantanaLog) -> Tuple[torch.Tensor, Union[torch.Tensor, float]]:
         """
         Analyze the thinking process and produce confidence metrics.
 
@@ -45,6 +45,6 @@ class BaseVipassana(nn.Module, ABC):
 
         Returns:
             v_ctx: Context vector (Batch, context_dim) - embedding of "doubt"
-            trust_score: Scalar confidence score (0.0-1.0) for external control
+            trust_score: Confidence score (Batch, 1) tensor or scalar (0.0-1.0)
         """
         pass

@@ -263,17 +263,21 @@ class VipassanaEngine(nn.Module):
         dtype = s_star.dtype
 
         # Run Vipassana analysis
-        v_ctx, trust_score_scalar = self.vipassana(s_star, santana)
+        v_ctx, trust_score = self.vipassana(s_star, santana)
 
-        # Convert scalar trust score to per-sample tensor
-        # Note: BaseVipassana returns scalar, but for batch consistency
-        # we expand it to (Batch, 1)
-        trust_score = torch.full(
-            (batch_size, 1),
-            trust_score_scalar,
-            device=device,
-            dtype=dtype,
-        )
+        # Ensure trust_score is (Batch, 1) tensor
+        # StandardVipassana now returns tensor directly
+        if not isinstance(trust_score, torch.Tensor):
+            # Backward compatibility: convert scalar to tensor if needed
+            trust_score = torch.full(
+                (batch_size, 1),
+                trust_score,
+                device=device,
+                dtype=dtype,
+            )
+        elif trust_score.dim() == 0:
+            # Handle 0-d tensor (scalar tensor)
+            trust_score = trust_score.expand(batch_size, 1)
 
         return v_ctx, trust_score
 

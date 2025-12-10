@@ -301,7 +301,11 @@ class SamadhiSystem(nn.Module):
         """
         # Run Samatha (frozen in Stage 2)
         with torch.no_grad():
-            s_star, santana, severity = self.samatha(x, noise_level=noise_level, drunk_mode=drunk_mode)
+            s_star_detached, santana, severity = self.samatha(x, noise_level=noise_level, drunk_mode=drunk_mode)
+
+        # Clone s_star and enable gradients for Vipassana's input
+        # This allows Vipassana to compute gradients through its own parameters
+        s_star = s_star_detached.clone().requires_grad_(True)
 
         # Run Vipassana (trainable)
         v_ctx, trust_score = self.vipassana(s_star, santana)
