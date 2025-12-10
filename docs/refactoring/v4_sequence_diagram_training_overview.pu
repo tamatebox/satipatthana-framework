@@ -1,0 +1,82 @@
+@startuml v4_sequence_diagram_training_overview
+!theme plain
+hide footbox
+skinparam sequenceMessageAlign center
+
+participant "User/Script" as User
+participant "Trainer\n(SamadhiTrainer)" as Trainer
+participant "Adapter" as Adapter
+participant "Samatha Core\n(Vitakka/Vicara/Sati)" as Samatha
+participant "Vipassana" as Vipassana
+participant "Recon Head\n(Stage 0/1 Only)" as ReconHead
+participant "Task Decoder\n(Conditional)" as TaskDecoder
+
+== Stage 0: Adapter Pre-training (Optional but Recommended) ==
+note over Trainer, TaskDecoder
+Goal: Initialize stable manifold projection (Autoencoding).
+Loss: Reconstruction | Freeze: Samatha Core, Vipassana, TaskDecoder
+*ReconHead here is specific to Adapter (ReconHead_Adapter).
+end note
+User -> Trainer: train(stage="0_adapter")
+activate Trainer
+    Trainer -> Adapter: Train
+    Trainer -> Samatha: Freeze
+    Trainer -> Vipassana: Freeze
+    Trainer -> ReconHead: Train (ReconHead_Adapter)
+    Trainer -> TaskDecoder: Freeze
+    Trainer -> Trainer: Optimize Adapter & ReconHead_Adapter
+deactivate Trainer
+
+== Stage 1: Samatha Training (Universal Dynamics Learning) ==
+note over Trainer, TaskDecoder
+Goal: Learn convergence dynamics and align Adapter to Samatha space.
+Loss: Stability + (Optional) Reconstruction | Freeze: Vipassana, TaskDecoder
+*Adapter is trained here.
+*ReconHead (optional) helps regularize Samatha's latent space.
+end note
+User -> Trainer: train(stage="1_samatha")
+activate Trainer
+    Trainer -> Adapter: Train
+    Trainer -> Samatha: Train
+    Trainer -> Vipassana: Freeze
+    Trainer -> ReconHead: Train (Optional: ReconHead_Samatha)
+    Trainer -> TaskDecoder: Freeze
+    Trainer -> Trainer: Optimize Adapter, Samatha Core, (Optional ReconHead)
+deactivate Trainer
+
+== Stage 2: Vipassana Training (Meta-Cognition) ==
+note over Trainer, TaskDecoder
+Goal: Learn to distinguish valid/invalid trajectories.
+Loss: Binary Cross Entropy (Contrastive) | Freeze: Adapter, Samatha, ReconHeads, TaskDecoder
+Noise Strategy:
+ - Augmenter: Input noise (x -> x_aug)
+ - Samatha Drunk Mode: Internal dysfunction (high dropout, etc.)
+ - Trainer Mismatch: Logical inconsistency (shuffled logs)
+end note
+User -> Trainer: train(stage="2_vipassana")
+activate Trainer
+    Trainer -> Adapter: Freeze
+    Trainer -> Samatha: Freeze (Generate Logs)
+    Trainer -> Vipassana: Train
+    Trainer -> ReconHead: Freeze / Unused
+    Trainer -> TaskDecoder: Freeze
+    Trainer -> Trainer: Optimize Vipassana Monitor
+deactivate Trainer
+
+== Stage 3: Decoder Fine-tuning (Conditional Expression) ==
+note over Trainer, TaskDecoder
+Goal: Learn calibrated output based on State + Context.
+Loss: Task Specific (CE/MSE) | Freeze: Adapter, Samatha, Vipassana
+*Only TaskDecoder is used for final inference.
+end note
+User -> Trainer: train(stage="3_decoder")
+activate Trainer
+    Trainer -> Adapter: Freeze
+    Trainer -> Samatha: Freeze
+    Trainer -> Vipassana: Freeze (Provide Context)
+    Trainer -> ReconHead: Freeze / Unused
+    Trainer -> TaskDecoder: Train (Conditional)
+    Trainer -> Trainer: Optimize TaskDecoder
+deactivate Trainer
+
+@enduml

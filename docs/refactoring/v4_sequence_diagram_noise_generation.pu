@@ -1,0 +1,99 @@
+@startuml v4_sequence_diagram_noise_generation
+!theme plain
+hide footbox
+skinparam sequenceMessageAlign center
+
+participant "Trainer" as Trainer
+participant "SamathaEngine" as Samatha
+participant "Augmenter\n(Input Only)" as Augmenter
+participant "Vitakka" as Vitakka
+participant "Vicara" as Vicara
+
+== Type 1: Environmental Ambiguity (Augmentation) ==
+note over Trainer, Augmenter
+Simulates "Noisy Input" (Target = 1.0 - Severity).
+Responsibility: **Augmenter** (Input Transformation).
+Samatha operates normally on noisy input.
+end note
+
+Trainer -> Samatha: forward(x, noise_level=0.8, drunk=False) <<frozen>>
+activate Samatha
+    Samatha -> Augmenter: forward(x, noise_level=0.8)
+    activate Augmenter
+    note right of Augmenter
+        Apply domain-specific noise (e.g., Masking, Gaussian).
+        Returns transformed input and severity score.
+    end note
+    Augmenter --> Samatha: x_aug, severity (e.g., 0.65)
+    deactivate Augmenter
+
+    Samatha -> Vitakka: forward(z_from_x_aug)
+    Vitakka --> Samatha: s_0
+    Samatha -> Vicara: forward(s_t)
+    Vicara --> Samatha: s_{t+1}
+    
+Samatha --> Trainer: s_aug, santana_aug, severity
+deactivate Samatha
+
+== Type 2: Internal Dysfunction (Drunk Mode) ==
+note over Trainer, Vicara
+Simulates "Brain Confusion" (Target = 0.0).
+Responsibility: **SamathaEngine** (Internal Parameter Control).
+Internal components behave erratically.
+end note
+
+Trainer -> Samatha: forward(x, noise=0.0, drunk=True) <<frozen>>
+activate Samatha
+    Samatha -> Samatha: Set Internal Flags (High Dropout, Temp)
+    
+    Samatha -> Vitakka: forward(z) <<drunk>>
+    activate Vitakka
+    note right of Vitakka
+        Drunk Mode: Randomly shuffle probes
+        or increase Softmax Temperature.
+    end note
+    Vitakka --> Samatha: s_0 (Chaotic Init)
+    deactivate Vitakka
+
+    loop Vicara Loop
+        Samatha -> Vicara: forward(s_t) <<drunk>>
+        activate Vicara
+        note right of Vicara
+            Drunk Mode: Apply strong noise to residual
+            or skip update randomly.
+        end note
+        Vicara --> Samatha: s_{t+1}
+        deactivate Vicara
+    end
+Samatha --> Trainer: s_drunk, santana_drunk, 0.0 (severity)
+deactivate Samatha
+
+== Type 3: Logical Inconsistency (Mismatch) ==
+note over Trainer, Vicara
+Simulates "Hallucination" (Target = 0.0).
+Responsibility: **Trainer** (Batch Manipulation).
+Samatha generates valid outputs, Trainer shuffles them.
+end note
+
+Trainer -> Samatha: forward(batch_x) <<frozen>>
+activate Samatha
+Samatha --> Trainer: batch_s_star, batch_santana
+deactivate Samatha
+
+alt use_label_guidance is True
+    Trainer -> Trainer: Cross-Label Shuffle
+    note right of Trainer
+        Select pairs (A, B) where Label(A) != Label(B).
+        Mismatch = (S*_A, Santana_B).
+        Ensures logical contradiction based on ground truth.
+    end note
+else Unsupervised Mode
+    Trainer -> Trainer: Random Shuffle
+    note right of Trainer
+        indices = randperm(batch_size).
+        Mismatch = (batch_s_star, batch_santana[indices]).
+        Assumes high probability of mismatch in large batches.
+    end note
+end
+
+@enduml

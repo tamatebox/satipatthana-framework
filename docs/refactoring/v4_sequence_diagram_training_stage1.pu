@@ -1,0 +1,55 @@
+@startuml v4_sequence_diagram_training_stage1
+!theme plain
+hide footbox
+skinparam sequenceMessageAlign center
+
+participant "User/Trainer" as Trainer
+participant "SamadhiSystem" as System
+participant "SamathaEngine" as Samatha
+participant "SamathaReconHead\n(Optional)" as ReconHead
+participant "AuxiliaryHead\n(Optional)" as AuxHead
+
+== Stage 1: Samatha Training (Universal Dynamics + Guidance) ==
+note over Trainer, AuxHead
+Goal: Learn convergence dynamics.
+Loss: Stability + Recon + (Optional) GuideLoss
+If use_label_guidance=True: S* is guided by labels via AuxHead.
+end note
+
+Trainer -> System: forward(x, y=y_label (optional), stage="1_samatha")
+activate System
+    System -> Samatha: forward(x, noise_level=0, drunk=False)
+    activate Samatha
+        note right of Samatha: (Standard Convergence Loop)
+        Samatha -> Samatha: Adapter -> Vitakka -> Vicara Loop
+    Samatha --> System: s_star, santana (Log)
+deactivate Samatha
+
+    par Optional Heads
+        group Reconstruction (Unsupervised)
+            System -> ReconHead: forward(s_star)
+            activate ReconHead
+            ReconHead --> System: x_recon
+            deactivate ReconHead
+        end
+
+        group Label Guidance (Supervised)
+            alt use_label_guidance is True and y is not None
+                System -> AuxHead: forward(s_star)
+                activate AuxHead
+                AuxHead --> System: y_aux (Auxiliary Prediction)
+                deactivate AuxHead
+            else Unsupervised Mode
+                note right of System: Skip AuxHead
+            end
+        end
+    end
+
+System --> Trainer: Loss Components (s_star, santana, x_recon, y_aux)
+deactivate System
+
+Trainer -> Trainer: Compute Loss:\n L_total = L_stability + L_recon \n + (Opt) L_guide(y, y_aux)
+Trainer -> System: backward()
+note right of Trainer: Optimize Samatha, Adapter, ReconHead, AuxHead
+
+@enduml

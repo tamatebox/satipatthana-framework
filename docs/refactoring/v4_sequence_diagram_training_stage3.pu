@@ -1,0 +1,46 @@
+@startuml v4_sequence_diagram_training_stage3
+!theme plain
+hide footbox
+skinparam sequenceMessageAlign center
+
+participant "User/Trainer" as Trainer
+participant "SamadhiSystem" as System
+participant "SamathaEngine" as Samatha
+participant "VipassanaEngine" as Vipassana
+participant "ConditionalDecoder" as Decoder
+
+== Stage 3: Conditional Decoder Fine-tuning ==
+note over Trainer, Decoder
+Goal: Learn calibrated output based on State + Context.
+Train: ConditionalDecoder | Freeze: Adapter, Samatha, Vipassana
+Loss: Task Specific (Supervised or Self-Supervised)
+end note
+
+Trainer -> System: forward(x, y=Optional, stage="3_decoder")
+activate System
+    note right of System: Samatha & Vipassana are frozen.
+    
+    System -> Samatha: forward(x, drunk=False) <<frozen>>
+    Samatha --> System: s_star, santana
+
+    System -> Vipassana: forward(s_star, santana) <<frozen>>
+    Vipassana --> System: v_ctx, trust_score
+
+    System -> Decoder: forward(s_star, v_ctx) <<trainable>>
+    activate Decoder
+    Decoder --> System: y_pred
+    deactivate Decoder
+
+System --> Trainer: y_pred, trust_score
+deactivate System
+
+alt use_label_guidance is True (Supervised)
+    Trainer -> Trainer: Compute Loss(y_pred, y_true)\n(e.g., CrossEntropy, MSE)
+else Unsupervised Mode
+    Trainer -> Trainer: Compute Loss(y_pred, x)\n(e.g., Reconstruction, Contrastive)
+end
+
+Trainer -> System: backward()
+note right of Trainer: Optimize Decoder Only
+
+@enduml
