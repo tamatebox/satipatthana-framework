@@ -7,19 +7,22 @@
 ## 1. 動機と課題
 
 ### 現状 (v3.0)
-*   設定情報は `config: Dict[str, Any]` という辞書型でバケツリレーされている。
+
+* 設定情報は `config: Dict[str, Any]` という辞書型でバケツリレーされている。
 
 ### 課題
-1.  **可読性の欠如**: どのコンポーネントが何の設定を必要とするか不明確。
-2.  **エラーの温床**: タイポや型不一致が実行時まで発覚しない。
-3.  **Configクラスの肥大化**: 単一Configに全パラメータを詰め込むと保守性が低下する。
-4.  **バリデーション不足**: 値の範囲チェックや型変換（list -> tuple）が保証されない。
+
+1. **可読性の欠如**: どのコンポーネントが何の設定を必要とするか不明確。
+2. **エラーの温床**: タイポや型不一致が実行時まで発覚しない。
+3. **Configクラスの肥大化**: 単一Configに全パラメータを詰め込むと保守性が低下する。
+4. **バリデーション不足**: 値の範囲チェックや型変換（list -> tuple）が保証されない。
 
 ### 新設計 (v3.1 Final)
-*   **BaseConfig & Validation**: 共通基底クラス `BaseConfig` を導入し、`__post_init__` から呼ばれる `validate()` フックで値の検証や型変換を集約する。
-*   **Enum Type Safety**: コンポーネントの識別 (`type`) に文字列ではなく `Enum` を使用し、タイポを防ぐ。
-*   **Polymorphism & Factory**: コンポーネント毎にConfigを分割し、Factory関数で適切に生成する。
-*   **Standard Library Only**: `inspect` 等の標準機能のみで実装し、依存関係を増やさない。
+
+* **BaseConfig & Validation**: 共通基底クラス `BaseConfig` を導入し、`__post_init__` から呼ばれる `validate()` フックで値の検証や型変換を集約する。
+* **Enum Type Safety**: コンポーネントの識別 (`type`) に文字列ではなく `Enum` を使用し、タイポを防ぐ。
+* **Polymorphism & Factory**: コンポーネント毎にConfigを分割し、Factory関数で適切に生成する。
+* **Standard Library Only**: `inspect` 等の標準機能のみで実装し、依存関係を増やさない。
 
 ## 2. アーキテクチャ概要
 
@@ -27,6 +30,7 @@
 最新のConfigシステムの構造については、[`samadhi/configs/README.md`](samadhi/configs/README.md) を参照してください。
 
 ### 2.1 設定クラスの階層構造
+
 `BaseConfig` を基点とし、共通のバリデーションやDict変換ロジックを集約する。
 
 ```text
@@ -39,6 +43,7 @@ BaseConfig (validate, from_dict)
 ```
 
 ### 2.2 ファイル構成
+
 Enum定義も含める。
 
 ```text
@@ -59,6 +64,7 @@ samadhi/configs/
 最新の実装詳細については、各Configファイル（`samadhi/configs/adapters.py`など）および[`docs/config_summary.md`](docs/config_summary.md)を参照してください。
 
 ### 3.1 共通基底クラス (`samadhi/configs/base.py`)
+
 全てのConfigの親クラス。`from_dict` による安全な生成と `validate` フックを提供する。
 
 ```python
@@ -73,6 +79,7 @@ class BaseConfig:
 ```
 
 ### 3.2 Enum定義 (`samadhi/configs/enums.py`)
+
 文字列リテラルのタイポを防ぐ。
 
 ```python
@@ -86,9 +93,11 @@ class AdapterType(str, Enum):
 ```
 
 ### 3.3 コンポーネントConfig定義 (`samadhi/configs/components.py`)
+
 **このファイルは削除され、機能は `samadhi/configs/adapters.py`, `samadhi/configs/vicara.py`, `samadhi/configs/vitakka.py`, `samadhi/configs/decoders.py`, `samadhi/configs/objectives.py` に分割されました。**
 
 ### 3.4 変換ファクトリ (`samadhi/configs/factory.py`)
+
 Enumを使って分岐し、`from_dict` を呼び出す。非常にシンプルになる。
 
 ```python
@@ -98,6 +107,7 @@ Enumを使って分岐し、`from_dict` を呼び出す。非常にシンプル�
 ```
 
 ### 3.5 全体Config定義 (`samadhi/configs/main.py`)
+
 `BaseConfig` を継承。ネスト構造の復元ロジックも整理。
 
 ```python

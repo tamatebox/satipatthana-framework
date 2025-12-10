@@ -376,6 +376,7 @@ class VipassanaEngine(nn.Module):
 ```
 
 **Drunk Mode 機能:**
+
 * Dropout率の動的増加
 * 初期状態への摂動追加
 * Vicaraステップのランダムスキップ

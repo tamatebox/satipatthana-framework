@@ -1,6 +1,6 @@
 # Training Module Documentation
 
-This directory contains the training logic for Samadhi Framework v4.0.
+This directory contains the training logic for Samadhi Framework.
 
 ## Directory Structure
 
@@ -8,7 +8,7 @@ This directory contains the training logic for Samadhi Framework v4.0.
 
 ## 4-Stage Curriculum Training
 
-Samadhi v4.0 uses a 4-stage curriculum learning approach:
+Samadhi Framework uses a 4-stage curriculum learning approach:
 
 | Stage | Name | Trainable Components | Objective |
 |-------|------|---------------------|-----------|
@@ -123,8 +123,17 @@ def __getitem__(self, idx):
 
 Training objectives are located in `samadhi/components/objectives/`:
 
+**Curriculum Training Objectives:**
+
 * **`VipassanaObjective`**: BCE loss for trust score training (Stage 2)
 * **`GuidanceLoss`**: Label guidance loss for Stage 1 (classification or regression)
 * **`StabilityLoss`**: Energy-based stability loss for Stage 1
 
-Legacy objectives (for v3.x compatibility) are also available in `samadhi/components/objectives/`.
+**Legacy Objectives (for simpler use cases):**
+
+* **`AutoencoderObjective`**: Pre-training (skips Vitakka/Vicara)
+* **`UnsupervisedObjective`**: Reconstruction + stability + entropy regularization
+* **`SupervisedClassificationObjective`**: Classification with CrossEntropy loss
+* **`SupervisedRegressionObjective`**: Regression with MSE loss
+* **`RobustRegressionObjective`**: Regression with Huber loss
+* **`AnomalyObjective`**: Anomaly detection with margin-based loss

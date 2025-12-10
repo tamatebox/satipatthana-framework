@@ -35,12 +35,12 @@ It implements the process of meditative concentration (Samadhi) in Buddhist psyc
 
 ## 🚀 Key Features
 
-*   **Modular Framework:** Easily swap Adapters (CNN, LSTM, MLP) and Decoders to fit any data modality.
-*   **Type-Safe Configuration:** Robust configuration management using Dataclasses and Enums for better validation and developer experience.
-*   **Objective-Driven Training:** Flexible training strategies (Autoencoder, Anomaly Detection, Supervised) by simply switching the `Objective` component.
-*   **Convergence:** The output is not a text stream, but a single "Purified State" with minimized entropy.
-*   **O(1) Inference:** Inference cost does not depend on the input length (Context Length), but only on the number of convergence steps (a constant).
-*   **Explainability (XAI):** "Why a particular subject was focused on" and "how concentration deepened" are fully visualized as logs.
+* **Modular Framework:** Easily swap Adapters (CNN, LSTM, MLP) and Decoders to fit any data modality.
+* **Type-Safe Configuration:** Robust configuration management using Dataclasses and Enums for better validation and developer experience.
+* **Objective-Driven Training:** Flexible training strategies (Autoencoder, Anomaly Detection, Supervised) by simply switching the `Objective` component.
+* **Convergence:** The output is not a text stream, but a single "Purified State" with minimized entropy.
+* **O(1) Inference:** Inference cost does not depend on the input length (Context Length), but only on the number of convergence steps (a constant).
+* **Explainability (XAI):** "Why a particular subject was focused on" and "how concentration deepened" are fully visualized as logs.
 
 ---
 
@@ -48,11 +48,11 @@ It implements the process of meditative concentration (Samadhi) in Buddhist psyc
 
 The unique properties of the Samadhi Framework make it suitable for tasks requiring deep insight and state stability rather than simple generation.
 
-1.  **Biosignal Analysis (Healthcare):** Extract stable physiological states (e.g., stress levels, cognitive load) from noisy EEG or heart rate data.
-2.  **Anomaly Detection (Forensics):** Identify "essential anomalies" in financial transactions or machine logs by converging normal patterns and detecting deviations.
-3.  **Human Intent Analysis (UX/Psychology):** Capture deep user intent or emotional shifts from interactions, beyond surface-level keywords.
-4.  **Autonomous Agents (Robotics):** Enable stable decision-making in chaotic environments by converging sensory inputs into clear actionable states.
-5.  **Creative Assistance (Structure Extraction):** Distill core concepts or themes from multiple creative drafts.
+1. **Biosignal Analysis (Healthcare):** Extract stable physiological states (e.g., stress levels, cognitive load) from noisy EEG or heart rate data.
+2. **Anomaly Detection (Forensics):** Identify "essential anomalies" in financial transactions or machine logs by converging normal patterns and detecting deviations.
+3. **Human Intent Analysis (UX/Psychology):** Capture deep user intent or emotional shifts from interactions, beyond surface-level keywords.
+4. **Autonomous Agents (Robotics):** Enable stable decision-making in chaotic environments by converging sensory inputs into clear actionable states.
+5. **Creative Assistance (Structure Extraction):** Distill core concepts or themes from multiple creative drafts.
 
 ---
 
@@ -78,8 +78,7 @@ The unique properties of the Samadhi Framework make it suitable for tasks requir
 │   ├── core/           # Core Engine and Builder
 │   ├── presets/        # Factory functions for standard configurations (Tabular, Vision, Sequence) ([Details](samadhi/presets/README.md))
 │   ├── train/          # Training Logic ([Details](samadhi/train/README.md))
-│   │   ├── hf_trainer.py # Hugging Face Trainer Wrapper
-│   │   └── objectives/   # Pluggable Training Objectives
+│   │   └── trainer.py  # 4-Stage Curriculum Trainer
 │   └── utils/          # Utility functions
 ├── tests/              # Unit Tests
 ├── main.py             # Entry point
@@ -87,6 +86,7 @@ The unique properties of the Samadhi Framework make it suitable for tasks requir
 ```
 
 ### Logging
+
 The Samadhi Framework utilizes a centralized logging system managed by `samadhi/utils/logger.py`. For consistent logging behavior across the project, please refer to the detailed guidelines and setup instructions in [docs/logging.md](docs/logging.md).
 
 -----
@@ -168,29 +168,39 @@ model = SamadhiBuilder(config) \
     .build()
 ```
 
-### 3. Training (Objective-Driven)
+### 3. Training (4-Stage Curriculum)
 
-Train the model using the Hugging Face compatible Trainer and pluggable Objectives.
+Train using the 4-stage curriculum trainer with Hugging Face integration.
 
 ```python
-from samadhi.train import SamadhiTrainer
-from samadhi.train.objectives.unsupervised import UnsupervisedObjective
-from samadhi.configs.main import SamadhiConfig
+from samadhi.train import SamadhiV4Trainer
+from samadhi.core.system import SamadhiSystem, TrainingStage
+from transformers import TrainingArguments
 
-# Assuming 'config' is a SamadhiConfig object created previously
-# Define Objective (e.g., Unsupervised Learning: Reconstruction + Stability)
-objective = UnsupervisedObjective(config)
+# Build SamadhiSystem (see samadhi/core/system.py for details)
+system = SamadhiSystem(...)
 
-# Initialize Trainer
-trainer = SamadhiTrainer(
-    model=model,
-    args=training_args, # Hugging Face TrainingArguments
-    objective=objective,
-    train_dataset=dataset
+# Training arguments
+args = TrainingArguments(
+    output_dir="./output",
+    num_train_epochs=10,
+    per_device_train_batch_size=32,
 )
 
-# Train
-trainer.train()
+# Initialize Trainer
+trainer = SamadhiV4Trainer(
+    model=system,
+    args=args,
+    train_dataset=dataset,
+)
+
+# Run full 4-stage curriculum
+results = trainer.run_curriculum(
+    stage0_epochs=5,   # Adapter pre-training
+    stage1_epochs=10,  # Samatha training
+    stage2_epochs=5,   # Vipassana training
+    stage3_epochs=5,   # Decoder fine-tuning
+)
 ```
 
 ---
@@ -201,36 +211,41 @@ The `notebooks/` directory contains various Jupyter Notebooks that demonstrate t
 
 To run these demos, ensure you have `jupyter lab` installed (`uv pip install "jupyterlab>=3"` if not already installed) and then navigate to the `notebooks/` directory.
 
-### Available Demos:
+### Available Demos
 
-*   **MNIST Demo (`mnist_demo.ipynb`):** Visualizes the "purification" process of noisy MNIST digits, showcasing the convergence property.
-*   **Fraud Detection Demo (`fraud_unsupervised_detection_explained.ipynb`):** An example of applying the Samadhi Model for fraud detection using unsupervised learning.
-*   **Time Series Anomaly Detection Demo (`time_series_anomaly_detection.ipynb`):** Demonstrates anomaly detection on time series data.
+* **MNIST Demo (`mnist_demo.ipynb`):** Visualizes the "purification" process of noisy MNIST digits, showcasing the convergence property.
+* **Fraud Detection Demo (`fraud_unsupervised_detection_explained.ipynb`):** An example of applying the Samadhi Model for fraud detection using unsupervised learning.
+* **Time Series Anomaly Detection Demo (`time_series_anomaly_detection.ipynb`):** Demonstrates anomaly detection on time series data.
 
-### How to Run:
+### How to Run
 
-1.  **Install Jupyter Lab (if not already installed):**
+1. **Install Jupyter Lab (if not already installed):**
+
     ```bash
     uv pip install "jupyterlab>=3"
     ```
-2.  **Start Jupyter Lab from the project root:**
+
+2. **Start Jupyter Lab from the project root:**
+
     ```bash
     jupyter lab
     ```
-3.  **Navigate to the `notebooks/` directory and open any of the `.ipynb` files.**
+
+3. **Navigate to the `notebooks/` directory and open any of the `.ipynb` files.**
 
 ---
 
 ## 🛠 Roadmap
 
-*   [x] **v1.0:** Theoretical Definition (Concept Proof)
-*   [x] **v2.2:** Waveform Simulation (Vitakka/Vicāra Implemented)
-*   [x] **v2.3:** Gating & Meta-Cognition (Sati Implemented)
-*   [x] **v2.4:** Anomaly Detection & Time Series Support
-*   [x] **v3.0:** **Framework Refactoring** (Modularization, Builder, HF Trainer)
-*   [x] **v3.1:** **Configuration Refactoring** (Type-Safe Configs, Factory Pattern)
-*   [ ] **v3.2:** NLP Implementation (Text Summarization/Concept Extraction)
-*   [ ] **Future:** Multi-Agent Samadhi (Dialogue of Insight)
+* [x] **v1.0:** Theoretical Definition (Concept Proof)
+* [x] **v2.2:** Waveform Simulation (Vitakka/Vicāra Implemented)
+* [x] **v2.3:** Gating & Meta-Cognition (Sati Implemented)
+* [x] **v2.4:** Anomaly Detection & Time Series Support
+* [x] **v3.0:** **Framework Refactoring** (Modularization, Builder, HF Trainer)
+* [x] **v3.1:** **Configuration Refactoring** (Type-Safe Configs, Factory Pattern)
+* [x] **v4.0:** **Meta-Cognition Architecture** (Vipassana, SamadhiSystem, 4-Stage Curriculum Training)
+* [ ] **Future:** NLP Implementation (Text Summarization/Concept Extraction)
+* [ ] **Future:** Multi-Agent Samadhi (Dialogue of Insight)
 
 -----
 

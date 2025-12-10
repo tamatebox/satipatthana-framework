@@ -1,23 +1,20 @@
 # Components Documentation
 
-This directory contains the modular components that make up the Samadhi Model. The architecture is designed to be highly extensible, allowing you to plug in custom implementations for different stages of the processing pipeline.
+This directory contains the modular components that make up the Samadhi Framework. The architecture is designed to be highly extensible, allowing you to plug in custom implementations for different stages of the processing pipeline.
 
 ## Directory Structure
 
-### Core Components (v3.x)
+### Core Components
 
 * **`adapters/`**: Input adapters that convert raw data (images, text, tabular) into the initial latent space `z`.
 * **`decoders/`**: Output decoders that reconstruct data or generate predictions from the purified latent state `s_final`.
 * **`vitakka/`**: "Applied Thought" or Search modules. Responsible for finding the initial "resonance" or concept `s0` from the adapted input.
 * **`vicara/`**: "Sustained Thought" or Refinement modules. Responsible for single-step state updates `s_t → s_{t+1}`.
 * **`refiners/`**: Internal transformation networks used by Vicara to calculate state updates (e.g., an MLP or RNN block).
-
-### New Components (v4.0)
-
 * **`augmenters/`**: Input augmentation modules that apply environmental noise to raw data for robust training. Returns `(x_augmented, severity)`.
 * **`sati/`**: "Mindfulness" or Gating modules. Monitors the state trajectory (SantanaLog) and determines when to stop the Vicara loop.
 * **`vipassana/`**: "Insight" or Meta-cognition modules. Analyzes the thinking process to produce context vectors and trust scores.
-* **`objectives/`**: Training objective components defining loss functions. Moved from `samadhi/train/objectives/` for better organization.
+* **`objectives/`**: Training objective components defining loss functions.
 
 ---
 
@@ -125,7 +122,7 @@ class MyVitakka(BaseVitakka):
 
 If you need to change *how* the refinement loop works (though usually, just changing the `Refiner` is enough).
 
-**Note (v4.0)**: Vicara now only performs single-step state updates. Loop control is delegated to SamathaEngine.
+**Note**: Vicara only performs single-step state updates. Loop control is delegated to SamathaEngine.
 
 ```python
 from samadhi.components.vicara.base import BaseVicara
@@ -144,7 +141,7 @@ class MyVicara(BaseVicara):
         pass
 ```
 
-### 6. Augmenters (Input Augmentation) - v4.0
+### 6. Augmenters (Input Augmentation)
 
 Augmenters apply environmental noise to raw input data for robust training.
 
@@ -166,7 +163,7 @@ class MyAugmenter(BaseAugmenter):
         return x_augmented, severity
 ```
 
-### 7. Sati (Convergence Monitoring) - v4.0
+### 7. Sati (Convergence Monitoring)
 
 Sati monitors the state trajectory and determines when to stop the Vicara loop.
 
@@ -188,7 +185,7 @@ class MySati(BaseSati):
         return should_stop, {"reason": "converged", "energy": ...}
 ```
 
-### 8. Vipassana (Meta-cognition) - v4.0
+### 8. Vipassana (Meta-cognition)
 
 Vipassana analyzes the thinking process to produce context vectors and trust scores.
 
@@ -252,6 +249,9 @@ class MyCustomObjective(BaseObjective):
 * `RobustRegressionObjective`: Regression with Huber loss (robust to outliers)
 * `CosineSimilarityObjective`: Semantic alignment via cosine similarity
 * `AnomalyObjective`: Anomaly detection with margin-based loss
+* `VipassanaObjective`: BCE loss for trust score training
+* `GuidanceLoss`: Label guidance loss (classification or regression)
+* `StabilityLoss`: Energy-based stability loss
 
 ## Integration into the Framework
 
