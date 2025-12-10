@@ -57,10 +57,10 @@ uv sync
 
 ```python
 import torch
-from samadhi.core.system import SamadhiSystem
-from samadhi.configs import SystemConfig
+from satipatthana.core.system import SatipatthanaSystem
+from satipatthana.configs import SystemConfig
 
-system = SamadhiSystem(SystemConfig.default(input_dim=784, latent_dim=64))
+system = SatipatthanaSystem(SystemConfig.default(input_dim=784, latent_dim=64))
 result = system(torch.randn(1, 784))
 print(f"Output: {result.output.shape}, Trust: {result.trust_score.item():.3f}")
 ```
@@ -69,9 +69,9 @@ print(f"Output: {result.output.shape}, Trust: {result.trust_score.item():.3f}")
 
 ```python
 import torch
-from samadhi.core.system import SamadhiSystem
-from samadhi.configs import SystemConfig, SamathaConfig, VipassanaEngineConfig
-from samadhi.configs import create_adapter_config, create_vicara_config, VitakkaConfig, StandardVipassanaConfig
+from satipatthana.core.system import SatipatthanaSystem
+from satipatthana.configs import SystemConfig, SamathaConfig, VipassanaEngineConfig
+from satipatthana.configs import create_adapter_config, create_vicara_config, VitakkaConfig, StandardVipassanaConfig
 
 config = SystemConfig(
     samatha=SamathaConfig(
@@ -84,7 +84,7 @@ config = SystemConfig(
     ),
 )
 
-system = SamadhiSystem(config)
+system = SatipatthanaSystem(config)
 result = system(torch.randn(1, 784))
 
 print(f"Output shape: {result.output.shape}")
@@ -108,10 +108,10 @@ else:
 ### Training (4-Stage Curriculum)
 
 ```python
-from samadhi.train import SamadhiV4Trainer
+from satipatthana.train import SatipatthanaTrainer
 from transformers import TrainingArguments
 
-trainer = SamadhiV4Trainer(
+trainer = SatipatthanaTrainer(
     model=system,
     args=TrainingArguments(output_dir="./output", num_train_epochs=10),
     train_dataset=dataset,
@@ -175,7 +175,7 @@ It implements Buddhist psychology concepts as engineering modules:
 │   ├── diagrams/       # PlantUML diagrams and images
 │   └── *.md            # Other guides (logging, training, workflow)
 ├── notebooks/          # Jupyter demos (MNIST, Fraud, Time Series)
-├── samadhi/
+├── satipatthana/
 │   ├── configs/        # Type-safe configuration system
 │   ├── components/     # Modular components
 │   │   ├── adapters/   # Input adapters (MLP, CNN, LSTM, Transformer)
@@ -184,7 +184,7 @@ It implements Buddhist psychology concepts as engineering modules:
 │   │   ├── sati/       # Convergence monitors
 │   │   ├── vipassana/  # Meta-cognition
 │   │   └── decoders/   # Output decoders
-│   ├── core/           # SamathaEngine, VipassanaEngine, SamadhiSystem
+│   ├── core/           # SamathaEngine, VipassanaEngine, SatipatthanaSystem
 │   └── train/          # 4-Stage curriculum trainer
 ├── tests/              # Unit tests
 └── pyproject.toml      # Project configuration (uv)
@@ -211,7 +211,7 @@ uv pip install "jupyterlab>=3" && jupyter lab
 * [x] **v1.0:** Theoretical Definition (Concept Proof)
 * [x] **v2.x:** Core Implementation (Vitakka, Vicāra, Sati)
 * [x] **v3.0:** Framework Refactoring (Modularization, Builder, HF Trainer)
-* [x] **v4.0:** **Introspective Architecture** (Vipassana, SamadhiSystem, 4-Stage Curriculum)
+* [x] **v4.0:** **Introspective Architecture** (Vipassana, SatipatthanaSystem, 4-Stage Curriculum)
 * [ ] **Future:** NLP Integration (LLM Hallucination Detection)
 * [ ] **Future:** Multi-Agent Satipatthana (Collaborative Insight)
 

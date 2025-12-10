@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 def generate_meditation_data(batch_size=1, seq_len=64, dim=64):
     """
-    Samadhi Model検証用データジェネレータ
+    Satipatthana Model検証用データジェネレータ
     - Target: 隠された真実 (正弦波の規則性)
     - Distraction: 強力な妄想 (ランダムなスパイクや別の周期)
     - Noise: 背景雑音 (ガウシアンノイズ)
@@ -39,7 +39,7 @@ def generate_meditation_data(batch_size=1, seq_len=64, dim=64):
 # plt.figure(figsize=(10, 4))
 # plt.plot(t, target.numpy().flatten(), label="Target (Essence)", linewidth=3, color="green")
 # plt.plot(t, x.numpy().flatten(), label="Input (Chaos)", alpha=0.6, color="gray")
-# plt.title("Samadhi Task: Can you extract the Green line from the Gray noise?")
+# plt.title("Satipatthana Task: Can you extract the Green line from the Gray noise?")
 # plt.legend()
 # plt.grid(True)
 # plt.show()

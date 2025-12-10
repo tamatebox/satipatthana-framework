@@ -4,7 +4,7 @@ hide footbox
 skinparam sequenceMessageAlign center
 
 participant "User/Trainer" as Trainer
-participant "SamadhiSystem" as System
+participant "SatipatthanaSystem" as System
 participant "SamathaEngine" as Samatha
 participant "VipassanaEngine" as Vipassana
 

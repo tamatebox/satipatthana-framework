@@ -1,6 +1,6 @@
 import pytest
 import torch
-from samadhi.components.decoders.vision import CnnDecoder
+from satipatthana.components.decoders.vision import CnnDecoder
 
 
 @pytest.fixture

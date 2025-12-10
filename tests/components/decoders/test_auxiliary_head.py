@@ -5,8 +5,8 @@ Tests for SimpleAuxHead implementation.
 import pytest
 import torch
 
-from samadhi.components.decoders.auxiliary import SimpleAuxHead
-from samadhi.configs.decoders import SimpleAuxHeadConfig
+from satipatthana.components.decoders.auxiliary import SimpleAuxHead
+from satipatthana.configs.decoders import SimpleAuxHeadConfig
 
 
 class TestSimpleAuxHead:
@@ -113,8 +113,8 @@ class TestSimpleAuxHead:
 
     def test_simpler_than_conditional(self):
         """Test that SimpleAuxHead has fewer parameters than ConditionalDecoder."""
-        from samadhi.components.decoders.conditional import ConditionalDecoder
-        from samadhi.configs.decoders import ConditionalDecoderConfig
+        from satipatthana.components.decoders.conditional import ConditionalDecoder
+        from satipatthana.configs.decoders import ConditionalDecoderConfig
 
         aux_config = SimpleAuxHeadConfig(dim=64, output_dim=10, decoder_hidden_dim=64)
         aux_head = SimpleAuxHead(aux_config)

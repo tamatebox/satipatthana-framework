@@ -5,9 +5,9 @@ Tests for FixedStepSati implementation.
 import pytest
 import torch
 
-from samadhi.components.sati.fixed_step import FixedStepSati
-from samadhi.configs.sati import FixedStepSatiConfig
-from samadhi.core.santana import SantanaLog
+from satipatthana.components.sati.fixed_step import FixedStepSati
+from satipatthana.configs.sati import FixedStepSatiConfig
+from satipatthana.core.santana import SantanaLog
 
 
 class TestFixedStepSati:

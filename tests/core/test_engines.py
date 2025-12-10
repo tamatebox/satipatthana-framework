@@ -11,25 +11,25 @@ import pytest
 import torch
 import torch.nn as nn
 
-from samadhi.core.engines import SamathaEngine, VipassanaEngine
-from samadhi.core.santana import SantanaLog
-from samadhi.configs.system import SamathaConfig, VipassanaEngineConfig
-from samadhi.configs.adapters import MlpAdapterConfig
-from samadhi.configs.vitakka import StandardVitakkaConfig
-from samadhi.configs.vicara import StandardVicaraConfig
-from samadhi.configs.sati import FixedStepSatiConfig, ThresholdSatiConfig
-from samadhi.configs.augmenter import IdentityAugmenterConfig, GaussianNoiseAugmenterConfig
-from samadhi.configs.vipassana import StandardVipassanaConfig
+from satipatthana.core.engines import SamathaEngine, VipassanaEngine
+from satipatthana.core.santana import SantanaLog
+from satipatthana.configs.system import SamathaConfig, VipassanaEngineConfig
+from satipatthana.configs.adapters import MlpAdapterConfig
+from satipatthana.configs.vitakka import StandardVitakkaConfig
+from satipatthana.configs.vicara import StandardVicaraConfig
+from satipatthana.configs.sati import FixedStepSatiConfig, ThresholdSatiConfig
+from satipatthana.configs.augmenter import IdentityAugmenterConfig, GaussianNoiseAugmenterConfig
+from satipatthana.configs.vipassana import StandardVipassanaConfig
 
-from samadhi.components.adapters.mlp import MlpAdapter
-from samadhi.components.augmenters.identity import IdentityAugmenter
-from samadhi.components.augmenters.gaussian import GaussianNoiseAugmenter
-from samadhi.components.vitakka.standard import StandardVitakka
-from samadhi.components.vicara.standard import StandardVicara
-from samadhi.components.refiners.mlp import MlpRefiner
-from samadhi.components.sati.fixed_step import FixedStepSati
-from samadhi.components.sati.threshold import ThresholdSati
-from samadhi.components.vipassana.standard import StandardVipassana
+from satipatthana.components.adapters.mlp import MlpAdapter
+from satipatthana.components.augmenters.identity import IdentityAugmenter
+from satipatthana.components.augmenters.gaussian import GaussianNoiseAugmenter
+from satipatthana.components.vitakka.standard import StandardVitakka
+from satipatthana.components.vicara.standard import StandardVicara
+from satipatthana.components.refiners.mlp import MlpRefiner
+from satipatthana.components.sati.fixed_step import FixedStepSati
+from satipatthana.components.sati.threshold import ThresholdSati
+from satipatthana.components.vipassana.standard import StandardVipassana
 
 
 # Test fixtures

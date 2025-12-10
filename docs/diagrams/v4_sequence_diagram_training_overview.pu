@@ -4,7 +4,7 @@ hide footbox
 skinparam sequenceMessageAlign center
 
 participant "User/Script" as User
-participant "Trainer\n(SamadhiTrainer)" as Trainer
+participant "Trainer\n(SatipatthanaTrainer)" as Trainer
 participant "Adapter" as Adapter
 participant "Samatha Core\n(Vitakka/Vicara/Sati)" as Samatha
 participant "Vipassana" as Vipassana

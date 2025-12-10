@@ -5,8 +5,8 @@ Tests for IdentityAugmenter implementation.
 import pytest
 import torch
 
-from samadhi.components.augmenters.identity import IdentityAugmenter
-from samadhi.configs.augmenter import IdentityAugmenterConfig
+from satipatthana.components.augmenters.identity import IdentityAugmenter
+from satipatthana.configs.augmenter import IdentityAugmenterConfig
 
 
 class TestIdentityAugmenter:

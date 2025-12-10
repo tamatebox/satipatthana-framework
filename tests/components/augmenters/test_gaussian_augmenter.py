@@ -5,8 +5,8 @@ Tests for GaussianNoiseAugmenter implementation.
 import pytest
 import torch
 
-from samadhi.components.augmenters.gaussian import GaussianNoiseAugmenter
-from samadhi.configs.augmenter import GaussianNoiseAugmenterConfig
+from satipatthana.components.augmenters.gaussian import GaussianNoiseAugmenter
+from satipatthana.configs.augmenter import GaussianNoiseAugmenterConfig
 
 
 class TestGaussianNoiseAugmenter:

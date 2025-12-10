@@ -152,15 +152,15 @@ Three data generation strategies teach Vipassana to detect anomalous thinking:
 
 -----
 
-## 📝 Implementation with SamadhiV4Trainer
+## 📝 Implementation with SatipatthanaTrainer
 
 ```python
-from samadhi.train import SamadhiV4Trainer
-from samadhi.core.system import SamadhiSystem
+from satipatthana.train import SatipatthanaTrainer
+from satipatthana.core.system import SatipatthanaSystem
 from transformers import TrainingArguments
 
 # Build system
-system = SamadhiSystem(config)
+system = SatipatthanaSystem(config)
 
 # Training arguments
 args = TrainingArguments(
@@ -170,7 +170,7 @@ args = TrainingArguments(
 )
 
 # Initialize trainer
-trainer = SamadhiV4Trainer(
+trainer = SatipatthanaTrainer(
     model=system,
     args=args,
     train_dataset=dataset,

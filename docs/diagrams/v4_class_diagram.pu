@@ -3,7 +3,7 @@
 hide empty members
 skinparam classAttributeIconSize 0
 
-package "samadhi" {
+package "satipatthana" {
     package "configs" {
         class SystemConfig {
             + use_label_guidance: bool
@@ -34,7 +34,7 @@ package "samadhi" {
           Shape: (num_steps, dim)
         end note
 
-        class SamadhiSystem {
+        class SatipatthanaSystem {
             + config: SystemConfig
             + samatha: SamathaEngine
             + vipassana: VipassanaEngine
@@ -50,7 +50,7 @@ package "samadhi" {
             + _forward_samatha_recon(s_star) : Tensor
             + _forward_aux_head(s_star) : Tensor
         }
-        note right of SamadhiSystem
+        note right of SatipatthanaSystem
           === Learning Policy (Freeze/Train) ===
           - Stage 0 (Adapter Pretrain):
               Train: Adapter, adapter_recon_head
@@ -67,7 +67,7 @@ package "samadhi" {
               Train: task_decoder
               Freeze: Samatha, Adapter, Vipassana, ReconHeads, aux_head
         end note
-        note right of SamadhiSystem::forward
+        note right of SatipatthanaSystem::forward
           Returns vary by stage:
           - Inference: (y_pred: Tensor, trust_score: float)
           - Stage1 (Samatha Train): (s_star, santana, x_recon, y_aux)
@@ -215,8 +215,8 @@ package "samadhi" {
     }
 
     package "train" {
-        class SamadhiTrainer {
-            + system: SamadhiSystem
+        class SatipatthanaTrainer {
+            + system: SatipatthanaSystem
             + config: TrainerConfig
             + current_stage: int
             --
@@ -228,7 +228,7 @@ package "samadhi" {
             + _generate_mismatch(s_stars, santanas, labels=None) : Tuple
             + _generate_drunk_samples(x) : Tuple
         }
-        note right of SamadhiTrainer
+        note right of SatipatthanaTrainer
           === Training Orchestrator ===
           Manages 4-stage curriculum learning.
           Responsibilities:
@@ -252,14 +252,14 @@ package "samadhi" {
 }
 
 ' Relationships
-SamadhiSystem *-- SystemConfig
-SamadhiSystem *-- SantanaLog
-SamadhiSystem *-- SamathaEngine
-SamadhiSystem *-- VipassanaEngine
-SamadhiSystem *-- ConditionalDecoder : task_decoder
-SamadhiSystem *-- SimpleAuxHead : auxiliary_head
-SamadhiSystem *-- SimpleReconstructionDecoder : adapter_recon_head
-SamadhiSystem *-- SimpleReconstructionDecoder : samatha_recon_head
+SatipatthanaSystem *-- SystemConfig
+SatipatthanaSystem *-- SantanaLog
+SatipatthanaSystem *-- SamathaEngine
+SatipatthanaSystem *-- VipassanaEngine
+SatipatthanaSystem *-- ConditionalDecoder : task_decoder
+SatipatthanaSystem *-- SimpleAuxHead : auxiliary_head
+SatipatthanaSystem *-- SimpleReconstructionDecoder : adapter_recon_head
+SatipatthanaSystem *-- SimpleReconstructionDecoder : samatha_recon_head
 
 SamathaEngine *-- SamathaConfig
 SamathaEngine o-- BaseAdapter
@@ -283,8 +283,8 @@ UnsupervisedObjective --|> BaseObjective
 VipassanaObjective --|> BaseObjective
 SupervisedClassificationObjective --|> BaseObjective
 
-SamadhiTrainer o-- SamadhiSystem
-SamadhiTrainer *-- TrainerConfig
-SamadhiTrainer ..> BaseObjective : uses
+SatipatthanaTrainer o-- SatipatthanaSystem
+SatipatthanaTrainer *-- TrainerConfig
+SatipatthanaTrainer ..> BaseObjective : uses
 
 @enduml

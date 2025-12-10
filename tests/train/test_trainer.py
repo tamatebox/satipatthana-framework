@@ -1,5 +1,5 @@
 """
-Tests for SamadhiV4Trainer.
+Tests for SatipatthanaTrainer.
 
 These tests verify:
 - Stage switching and freeze policies
@@ -13,28 +13,28 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 from transformers import TrainingArguments
 
-from samadhi.core.system import SamadhiSystem, TrainingStage
-from samadhi.core.engines import SamathaEngine, VipassanaEngine
-from samadhi.train.trainer import SamadhiV4Trainer, Stage2NoiseStrategy
-from samadhi.configs.system import SystemConfig, SamathaConfig, VipassanaEngineConfig
-from samadhi.configs.adapters import MlpAdapterConfig
-from samadhi.configs.vitakka import StandardVitakkaConfig
-from samadhi.configs.vicara import StandardVicaraConfig
-from samadhi.configs.sati import FixedStepSatiConfig
-from samadhi.configs.augmenter import IdentityAugmenterConfig
-from samadhi.configs.vipassana import StandardVipassanaConfig
-from samadhi.configs.decoders import ConditionalDecoderConfig, ReconstructionDecoderConfig, SimpleAuxHeadConfig
+from satipatthana.core.system import SatipatthanaSystem, TrainingStage
+from satipatthana.core.engines import SamathaEngine, VipassanaEngine
+from satipatthana.train.trainer import SatipatthanaTrainer, Stage2NoiseStrategy
+from satipatthana.configs.system import SystemConfig, SamathaConfig, VipassanaEngineConfig
+from satipatthana.configs.adapters import MlpAdapterConfig
+from satipatthana.configs.vitakka import StandardVitakkaConfig
+from satipatthana.configs.vicara import StandardVicaraConfig
+from satipatthana.configs.sati import FixedStepSatiConfig
+from satipatthana.configs.augmenter import IdentityAugmenterConfig
+from satipatthana.configs.vipassana import StandardVipassanaConfig
+from satipatthana.configs.decoders import ConditionalDecoderConfig, ReconstructionDecoderConfig, SimpleAuxHeadConfig
 
-from samadhi.components.adapters.mlp import MlpAdapter
-from samadhi.components.augmenters.identity import IdentityAugmenter
-from samadhi.components.vitakka.standard import StandardVitakka
-from samadhi.components.vicara.standard import StandardVicara
-from samadhi.components.refiners.mlp import MlpRefiner
-from samadhi.components.sati.fixed_step import FixedStepSati
-from samadhi.components.vipassana.standard import StandardVipassana
-from samadhi.components.decoders.conditional import ConditionalDecoder
-from samadhi.components.decoders.reconstruction import ReconstructionDecoder
-from samadhi.components.decoders.auxiliary import SimpleAuxHead
+from satipatthana.components.adapters.mlp import MlpAdapter
+from satipatthana.components.augmenters.identity import IdentityAugmenter
+from satipatthana.components.vitakka.standard import StandardVitakka
+from satipatthana.components.vicara.standard import StandardVicara
+from satipatthana.components.refiners.mlp import MlpRefiner
+from satipatthana.components.sati.fixed_step import FixedStepSati
+from satipatthana.components.vipassana.standard import StandardVipassana
+from satipatthana.components.decoders.conditional import ConditionalDecoder
+from satipatthana.components.decoders.reconstruction import ReconstructionDecoder
+from satipatthana.components.decoders.auxiliary import SimpleAuxHead
 
 
 # Constants
@@ -86,7 +86,7 @@ def system_config():
 
 @pytest.fixture
 def system_full(system_config):
-    """Create SamadhiSystem with all heads for testing."""
+    """Create SatipatthanaSystem with all heads for testing."""
     config = system_config.samatha
     adapter = MlpAdapter(config.adapter)
     augmenter = IdentityAugmenter(config.augmenter)
@@ -117,7 +117,7 @@ def system_full(system_config):
 
     auxiliary_head = SimpleAuxHead(SimpleAuxHeadConfig(dim=LATENT_DIM, output_dim=OUTPUT_DIM))
 
-    return SamadhiSystem(
+    return SatipatthanaSystem(
         config=system_config,
         samatha=samatha_engine,
         vipassana=vipassana_engine,
@@ -148,12 +148,12 @@ def training_args(tmp_path):
     )
 
 
-class TestSamadhiV4TrainerInit:
+class TestSatipatthanaTrainerInit:
     """Tests for trainer initialization."""
 
     def test_initialization(self, system_full, training_args, dataset):
         """Test trainer initialization."""
-        trainer = SamadhiV4Trainer(
+        trainer = SatipatthanaTrainer(
             model=system_full,
             args=training_args,
             train_dataset=dataset,
@@ -164,9 +164,9 @@ class TestSamadhiV4TrainerInit:
         assert trainer.model == system_full
 
     def test_initialization_requires_system(self, training_args, dataset):
-        """Test that trainer requires SamadhiSystem."""
+        """Test that trainer requires SatipatthanaSystem."""
         with pytest.raises(TypeError):
-            SamadhiV4Trainer(
+            SatipatthanaTrainer(
                 model=torch.nn.Linear(10, 10),  # Wrong type
                 args=training_args,
                 train_dataset=dataset,
@@ -178,7 +178,7 @@ class TestStageSwitching:
 
     def test_set_stage_updates_model(self, system_full, training_args, dataset):
         """Test that set_stage updates both trainer and model."""
-        trainer = SamadhiV4Trainer(
+        trainer = SatipatthanaTrainer(
             model=system_full,
             args=training_args,
             train_dataset=dataset,
@@ -192,7 +192,7 @@ class TestStageSwitching:
 
     def test_set_stage_applies_freeze_policy(self, system_full, training_args, dataset):
         """Test that set_stage applies correct freeze policy."""
-        trainer = SamadhiV4Trainer(
+        trainer = SatipatthanaTrainer(
             model=system_full,
             args=training_args,
             train_dataset=dataset,
@@ -212,7 +212,7 @@ class TestLossComputation:
 
     def test_stage0_loss(self, system_full, training_args, dataset):
         """Test Stage 0 loss computation."""
-        trainer = SamadhiV4Trainer(
+        trainer = SatipatthanaTrainer(
             model=system_full,
             args=training_args,
             train_dataset=dataset,
@@ -230,7 +230,7 @@ class TestLossComputation:
 
     def test_stage1_loss(self, system_full, training_args, dataset):
         """Test Stage 1 loss computation."""
-        trainer = SamadhiV4Trainer(
+        trainer = SatipatthanaTrainer(
             model=system_full,
             args=training_args,
             train_dataset=dataset,
@@ -248,7 +248,7 @@ class TestLossComputation:
 
     def test_stage1_loss_with_label_guidance(self, system_full, training_args, dataset):
         """Test Stage 1 loss with label guidance."""
-        trainer = SamadhiV4Trainer(
+        trainer = SatipatthanaTrainer(
             model=system_full,
             args=training_args,
             train_dataset=dataset,
@@ -268,7 +268,7 @@ class TestLossComputation:
         x = torch.randn(BATCH_SIZE, INPUT_DIM)
         _ = system_full.forward_stage2(x)
 
-        trainer = SamadhiV4Trainer(
+        trainer = SatipatthanaTrainer(
             model=system_full,
             args=training_args,
             train_dataset=dataset,
@@ -286,7 +286,7 @@ class TestLossComputation:
 
     def test_stage3_loss(self, system_full, training_args, dataset):
         """Test Stage 3 loss computation."""
-        trainer = SamadhiV4Trainer(
+        trainer = SatipatthanaTrainer(
             model=system_full,
             args=training_args,
             train_dataset=dataset,
@@ -303,7 +303,7 @@ class TestLossComputation:
 
     def test_stage3_requires_labels(self, system_full, training_args, dataset):
         """Test Stage 3 raises error without labels."""
-        trainer = SamadhiV4Trainer(
+        trainer = SatipatthanaTrainer(
             model=system_full,
             args=training_args,
             train_dataset=dataset,
@@ -333,7 +333,7 @@ class TestCurriculumTraining:
         # Create a simple dataset that's big enough
         big_dataset = DummyDataset(size=64)
 
-        trainer = SamadhiV4Trainer(
+        trainer = SatipatthanaTrainer(
             model=system_full,
             args=training_args,
             train_dataset=big_dataset,
@@ -349,7 +349,7 @@ class TestCurriculumTraining:
 
     def test_inference_mode_after_curriculum(self, system_full, training_args, dataset):
         """Test that inference mode is set after curriculum completion."""
-        trainer = SamadhiV4Trainer(
+        trainer = SatipatthanaTrainer(
             model=system_full,
             args=training_args,
             train_dataset=dataset,

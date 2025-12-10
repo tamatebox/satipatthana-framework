@@ -4,7 +4,7 @@ hide footbox
 skinparam sequenceMessageAlign center
 
 actor User
-participant "System\n(SamadhiSystem)" as System
+participant "System\n(SatipatthanaSystem)" as System
 participant "Samatha\n(SamathaEngine)" as Samatha
 participant "Adapter\n(BaseAdapter)" as Adapter
 participant "Vitakka\n(BaseVitakka)" as Vitakka

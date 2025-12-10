@@ -6,9 +6,9 @@ import pytest
 import torch
 from typing import Tuple, Dict, Any
 
-from samadhi.components.sati.base import BaseSati
-from samadhi.core.santana import SantanaLog
-from samadhi.configs.sati import FixedStepSatiConfig, ThresholdSatiConfig
+from satipatthana.components.sati.base import BaseSati
+from satipatthana.core.santana import SantanaLog
+from satipatthana.configs.sati import FixedStepSatiConfig, ThresholdSatiConfig
 
 
 class MockFixedStepSati(BaseSati):

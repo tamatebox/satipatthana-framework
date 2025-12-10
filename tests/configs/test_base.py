@@ -1,6 +1,6 @@
 import pytest
 from dataclasses import dataclass
-from samadhi.configs.base import BaseConfig
+from satipatthana.configs.base import BaseConfig
 
 
 @dataclass

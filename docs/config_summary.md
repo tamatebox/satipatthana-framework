@@ -2,9 +2,9 @@
 
 このドキュメントでは、`Satipatthana Framework`のConfigパラメータについて説明します。v4.0では、3エンジン構造（SamathaEngine, VipassanaEngine, ConditionalDecoder）に対応した新しいConfig体系に移行しました。
 
-Configのルートは`samadhi/configs/system.py`で定義されている`SystemConfig`オブジェクトです。
+Configのルートは`satipatthana/configs/system.py`で定義されている`SystemConfig`オブジェクトです。
 
-## 1. ルート設定: `SystemConfig` (`samadhi/configs/system.py`)
+## 1. ルート設定: `SystemConfig` (`satipatthana/configs/system.py`)
 
 `SystemConfig`は、モデル全体のグローバルパラメータと、各主要エンジンのサブ設定を保持します。
 
@@ -37,7 +37,7 @@ VipassanaEngine（内省エンジン）の構成を定義します。
 | :--- | :--- | :--- | :--- |
 | **`vipassana`** | `StandardVipassanaConfig()` | いいえ | Vipassanaコンポーネントの設定 |
 
-## 4. アダプター設定 (`samadhi/configs/adapters.py`)
+## 4. アダプター設定 (`satipatthana/configs/adapters.py`)
 
 入力データから潜在状態を生成するアダプターの動作を定義します。
 
@@ -79,7 +79,7 @@ VipassanaEngine（内省エンジン）の構成を定義します。
 | **`num_layers`** | `2` | いいえ | Transformer Encoder層の数 |
 | **`num_heads`** | `4` | いいえ | Multi-head Attentionのヘッド数 |
 
-## 5. Augmenter設定 (`samadhi/configs/augmenter.py`)
+## 5. Augmenter設定 (`satipatthana/configs/augmenter.py`)
 
 入力に対するノイズ付与を制御します。
 
@@ -90,7 +90,7 @@ VipassanaEngine（内省エンジン）の構成を定義します。
 | **`type`** | `AugmenterType.IDENTITY` | いいえ | Augmenterのタイプ（`IDENTITY`, `GAUSSIAN`） |
 | **`max_noise_std`** | `0.3` | いいえ | (GAUSSIAN) 最大ノイズ標準偏差 |
 
-## 6. Vitakka設定 (`samadhi/configs/vitakka.py`)
+## 6. Vitakka設定 (`satipatthana/configs/vitakka.py`)
 
 初期状態（$S_0$）の生成とプローブの管理を制御します。
 
@@ -102,7 +102,7 @@ VipassanaEngine（内省エンジン）の構成を定義します。
 | **`temperature`** | `0.2` | いいえ | Softmaxの温度パラメータ（低いほど一境性） |
 | **`trainable`** | `True` | いいえ | プローブが学習可能かどうか |
 
-## 7. Vicara設定 (`samadhi/configs/vicara.py`)
+## 7. Vicara設定 (`satipatthana/configs/vicara.py`)
 
 潜在状態の再帰的精製プロセスを制御します。
 
@@ -131,7 +131,7 @@ VipassanaEngine（内省エンジン）の構成を定義します。
 | **`num_probes`** | `16` | いいえ | プローブの数（プローブごとにRefinerを持つ） |
 | **`latent_dim`** | `64` | いいえ | 潜在空間の次元 |
 
-## 8. Sati設定 (`samadhi/configs/sati.py`)
+## 8. Sati設定 (`satipatthana/configs/sati.py`)
 
 収束判定と停止制御を定義します。
 
@@ -142,7 +142,7 @@ VipassanaEngine（内省エンジン）の構成を定義します。
 | **`type`** | `SatiType.FIXED_STEP` | いいえ | Satiのタイプ（`FIXED_STEP`, `THRESHOLD`） |
 | **`threshold`** | `1e-4` | いいえ | (THRESHOLD) 収束判定閾値 $\epsilon$ |
 
-## 9. Vipassana設定 (`samadhi/configs/vipassana.py`)
+## 9. Vipassana設定 (`satipatthana/configs/vipassana.py`)
 
 メタ認知モジュールの動作を定義します。
 
@@ -154,7 +154,7 @@ VipassanaEngine（内省エンジン）の構成を定義します。
 | **`latent_dim`** | `64` | いいえ | 入力潜在状態の次元 |
 | **`hidden_dim`** | `64` | いいえ | LogEncoder内の隠れ層の次元 |
 
-## 10. デコーダー設定 (`samadhi/configs/decoders.py`)
+## 10. デコーダー設定 (`satipatthana/configs/decoders.py`)
 
 ### `ReconstructionDecoderConfig` (学習補助用)
 
@@ -180,11 +180,11 @@ VipassanaEngine（内省エンジン）の構成を定義します。
 ### Factory関数を使用した構築
 
 ```python
-from samadhi.configs import SystemConfig, SamathaConfig, VipassanaEngineConfig
-from samadhi.configs import create_adapter_config, create_vicara_config
-from samadhi.configs import AugmenterConfig, VitakkaConfig, SatiConfig
-from samadhi.configs import StandardVipassanaConfig
-from samadhi.configs.enums import AugmenterType, SatiType
+from satipatthana.configs import SystemConfig, SamathaConfig, VipassanaEngineConfig
+from satipatthana.configs import create_adapter_config, create_vicara_config
+from satipatthana.configs import AugmenterConfig, VitakkaConfig, SatiConfig
+from satipatthana.configs import StandardVipassanaConfig
+from satipatthana.configs.enums import AugmenterType, SatiType
 
 config = SystemConfig(
     samatha=SamathaConfig(
@@ -242,4 +242,4 @@ config = SystemConfig(
 | - | `config.samatha.augmenter.*` (新規) |
 | - | `config.samatha.sati.*` (新規) |
 
-**注意:** v4.0では、Objective設定はConfigから分離され、`SamadhiV4Trainer`が各Stageに応じて内部で管理します。
+**注意:** v4.0では、Objective設定はConfigから分離され、`SatipatthanaTrainer`が各Stageに応じて内部で管理します。

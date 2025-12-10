@@ -10,10 +10,10 @@ The Satipatthana Framework workflow is unique due to its three-engine cognitive 
 
 ### Key Directories
 
-* **Configuration (`samadhi/configs/`)**: Defines model hyperparameters. Check here for required fields (e.g., `input_dim`, `seq_len`).
-* **Core (`samadhi/core/`)**: Main system components (`SamadhiSystem`, `SamathaEngine`, `VipassanaEngine`).
-* **Components (`samadhi/components/`)**: Modular components (Adapters, Augmenters, Vitakka, Vicara, Sati, Vipassana, Decoders).
-* **Trainer (`samadhi/train/v4_trainer.py`)**: The `SamadhiV4Trainer` implementing 4-stage curriculum.
+* **Configuration (`satipatthana/configs/`)**: Defines model hyperparameters. Check here for required fields (e.g., `input_dim`, `seq_len`).
+* **Core (`satipatthana/core/`)**: Main system components (`SatipatthanaSystem`, `SamathaEngine`, `VipassanaEngine`).
+* **Components (`satipatthana/components/`)**: Modular components (Adapters, Augmenters, Vitakka, Vicara, Sati, Vipassana, Decoders).
+* **Trainer (`satipatthana/train/v4_trainer.py`)**: The `SatipatthanaTrainer` implementing 4-stage curriculum.
 
 ---
 
@@ -63,27 +63,27 @@ Before writing code, determine the **Data Type** and **Task Goal**.
 
 Construct a `SystemConfig` object using factory functions.
 
-**Critical:** Certain parameters are **mandatory** and have no defaults. Verify these in `samadhi/configs/*.py`.
+**Critical:** Certain parameters are **mandatory** and have no defaults. Verify these in `satipatthana/configs/*.py`.
 
-* **Adapters (`samadhi/configs/adapters.py`)**:
+* **Adapters (`satipatthana/configs/adapters.py`)**:
   * `MlpAdapterConfig`: Requires `input_dim`.
   * `LstmAdapterConfig`: Requires `input_dim`, `seq_len`.
   * `CnnAdapterConfig`: Requires `img_size`, `channels`.
   * `TransformerAdapterConfig`: Requires `input_dim`, `seq_len`.
-* **Decoders (`samadhi/configs/decoders.py`)**:
+* **Decoders (`satipatthana/configs/decoders.py`)**:
   * `ReconstructionDecoderConfig`: Requires `input_dim`.
   * `ConditionalDecoderConfig`: Requires `dim`, `context_dim`, `output_dim`.
-* **Vipassana (`samadhi/configs/vipassana.py`)**:
+* **Vipassana (`satipatthana/configs/vipassana.py`)**:
   * `StandardVipassanaConfig`: Requires `context_dim`.
 
 **Example Config (MLP for Classification):**
 
 ```python
-from samadhi.configs import SystemConfig, SamathaConfig, VipassanaEngineConfig
-from samadhi.configs import create_adapter_config, create_vicara_config
-from samadhi.configs import AugmenterConfig, VitakkaConfig, SatiConfig
-from samadhi.configs import StandardVipassanaConfig
-from samadhi.configs.enums import AugmenterType, SatiType
+from satipatthana.configs import SystemConfig, SamathaConfig, VipassanaEngineConfig
+from satipatthana.configs import create_adapter_config, create_vicara_config
+from satipatthana.configs import AugmenterConfig, VitakkaConfig, SatiConfig
+from satipatthana.configs import StandardVipassanaConfig
+from satipatthana.configs.enums import AugmenterType, SatiType
 
 config = SystemConfig(
     samatha=SamathaConfig(
@@ -131,7 +131,7 @@ config = SystemConfig(
 ### Step 3: Data Preparation
 
 Create a custom `torch.utils.data.Dataset`.
-The `__getitem__` method **must** return a dictionary compatible with `SamadhiSystem.forward`:
+The `__getitem__` method **must** return a dictionary compatible with `SatipatthanaSystem.forward`:
 
 ```python
 class MyDataset(Dataset):
@@ -144,20 +144,20 @@ class MyDataset(Dataset):
 
 ### Step 4: Model Instantiation
 
-Instantiate `SamadhiSystem` with your config:
+Instantiate `SatipatthanaSystem` with your config:
 
 ```python
-from samadhi.core.system import SamadhiSystem
+from satipatthana.core.system import SatipatthanaSystem
 
-system = SamadhiSystem(config)
+system = SatipatthanaSystem(config)
 ```
 
 ### Step 5: 4-Stage Curriculum Training
 
-Use `SamadhiV4Trainer` to run the full curriculum:
+Use `SatipatthanaTrainer` to run the full curriculum:
 
 ```python
-from samadhi.train import SamadhiV4Trainer
+from satipatthana.train import SatipatthanaTrainer
 from transformers import TrainingArguments
 
 # Training arguments
@@ -169,7 +169,7 @@ args = TrainingArguments(
 )
 
 # Initialize Trainer
-trainer = SamadhiV4Trainer(
+trainer = SatipatthanaTrainer(
     model=system,
     args=args,
     train_dataset=dataset,

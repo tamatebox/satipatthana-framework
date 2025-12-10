@@ -8,23 +8,23 @@ Phase 1 Tests:
 """
 
 import pytest
-from samadhi.configs.enums import AugmenterType, SatiType, VipassanaType
-from samadhi.configs.augmenter import (
+from satipatthana.configs.enums import AugmenterType, SatiType, VipassanaType
+from satipatthana.configs.augmenter import (
     BaseAugmenterConfig,
     IdentityAugmenterConfig,
     GaussianNoiseAugmenterConfig,
 )
-from samadhi.configs.sati import (
+from satipatthana.configs.sati import (
     BaseSatiConfig,
     FixedStepSatiConfig,
     ThresholdSatiConfig,
 )
-from samadhi.configs.vipassana import (
+from satipatthana.configs.vipassana import (
     BaseVipassanaConfig,
     StandardVipassanaConfig,
     LSTMVipassanaConfig,
 )
-from samadhi.configs.system import (
+from satipatthana.configs.system import (
     SamathaConfig,
     VipassanaEngineConfig,
     SystemConfig,

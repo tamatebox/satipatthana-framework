@@ -5,8 +5,8 @@ Tests for ConditionalDecoder implementation.
 import pytest
 import torch
 
-from samadhi.components.decoders.conditional import ConditionalDecoder
-from samadhi.configs.decoders import ConditionalDecoderConfig
+from satipatthana.components.decoders.conditional import ConditionalDecoder
+from satipatthana.configs.decoders import ConditionalDecoderConfig
 
 
 class TestConditionalDecoder:

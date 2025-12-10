@@ -28,7 +28,7 @@ Samadhi v4.0は、情報の質的変換を担う3つの主要なエンジンと�
 
 ### 2.3. エンジン別詳細仕様 (Component Specs)
 
-システムは `torch.nn.Module` を継承する3つの主要なエンジンクラス (`SamathaEngine`, `VipassanaEngine`, `ConditionalDecoder` は `SamadhiSystem` 内の `task_decoder` として管理) と、学習補助のReconstruction Headで構成されます。これらは `SamadhiSystem` で統括されます。
+システムは `torch.nn.Module` を継承する3つの主要なエンジンクラス (`SamathaEngine`, `VipassanaEngine`, `ConditionalDecoder` は `SatipatthanaSystem` 内の `task_decoder` として管理) と、学習補助のReconstruction Headで構成されます。これらは `SatipatthanaSystem` で統括されます。
 
 #### 2.3.1. Engine 1: SamathaEngine (The Meditator)
 
@@ -144,11 +144,11 @@ v3.1の構造をベースに、8コンポーネント制への移行、Engineと
 
 ### 5.1. 主要なディレクトリ再編
 
-* `samadhi/core/`:
-  * `system.py`: `SamadhiSystem` クラス (全体統括) を新規作成。
+* `satipatthana/core/`:
+  * `system.py`: `SatipatthanaSystem` クラス (全体統括) を新規作成。
   * `engines.py`: `SamathaEngine`, `VipassanaEngine` クラスを配置 (旧 `engine.py` を分割・改修)。
   * `santana.py`: `SantanaLog` クラス (思考ログ) を新規作成。
-* `samadhi/components/`:
+* `satipatthana/components/`:
   * **`adapters/`**: 既存を改修。
   * **`augmenters/`**: **新規作成**。`BaseAugmenter` および具体的な Augmenter (例: `DomainAugmenter`) を配置。
   * **`vitakka/`**: 既存を改修。
@@ -157,17 +157,17 @@ v3.1の構造をベースに、8コンポーネント制への移行、Engineと
   * **`sati/`**: **新規作成**。`BaseSati` および具体的な Sati (例: `ThresholdSati`, `FixedStepSati`) を配置。
   * **`vipassana/`**: **新規作成**。`BaseVipassana` および具体的な実装 (`LogEncoder`, `ConfidenceMonitor`) を配置。
   * **`decoders/`**: 既存を改修。`ConditionalDecoder`, `SimpleReconstructionDecoder`, `SimpleAuxHead` を配置。
-  * **`objectives/`**: 旧 `samadhi/train/objectives/` から**移動**。`VipassanaObjective` を新規作成。
+  * **`objectives/`**: 旧 `satipatthana/train/objectives/` から**移動**。`VipassanaObjective` を新規作成。
 
 ### 5.2. Configシステムの変更
 
-* `samadhi/configs/main.py`: `SystemConfig` (統合設定) を中心に、各Engine/Componentの設定を階層化。
-* `samadhi/configs/samatha.py`, `samadhi/configs/vipassana.py`, `samadhi/configs/objectives.py`, `samadhi/configs/augmenters.py`, `samadhi/configs/sati.py`, `samadhi/configs/auxiliary_head.py` など、必要に応じて細分化。
+* `satipatthana/configs/main.py`: `SystemConfig` (統合設定) を中心に、各Engine/Componentの設定を階層化。
+* `satipatthana/configs/samatha.py`, `satipatthana/configs/vipassana.py`, `satipatthana/configs/objectives.py`, `satipatthana/configs/augmenters.py`, `satipatthana/configs/sati.py`, `satipatthana/configs/auxiliary_head.py` など、必要に応じて細分化。
 
 ### 5.3. TrainerおよびStrategies
 
-* `samadhi/train/hf_trainer.py`: `SamadhiTrainer` を改修し、4ステージ学習カリキュラムを制御できるようにする。
-* `samadhi/train/strategies.py`: 各ステージの具体的な学習ループ定義 (Stage 0, 1, 2, 3) を配置 (新規作成)。
+* `satipatthana/train/hf_trainer.py`: `SamadhiTrainer` を改修し、4ステージ学習カリキュラムを制御できるようにする。
+* `satipatthana/train/strategies.py`: 各ステージの具体的な学習ループ定義 (Stage 0, 1, 2, 3) を配置 (新規作成)。
 
 ## 6. 実装フェーズ (Implementation Roadmap)
 
@@ -181,9 +181,9 @@ v3.1の構造をベースに、8コンポーネント制への移行、Engineと
 
 1. **ディレクトリ構造の作成**: DONE
 
-    * `samadhi/components/augmenters/`, `sati/`, `vipassana/` の新規作成。
+    * `satipatthana/components/augmenters/`, `sati/`, `vipassana/` の新規作成。
 
-    * `samadhi/core/system.py`, `engines.py`, `santana.py` の新規作成。
+    * `satipatthana/core/system.py`, `engines.py`, `santana.py` の新規作成。
 
 2. **Baseクラス定義**: DONE
 
@@ -197,9 +197,9 @@ v3.1の構造をベースに、8コンポーネント制への移行、Engineと
 
     * `SystemConfig` に `use_label_guidance: bool` フラグを追加。
 
-    * `samadhi/configs/` 下に `augmenter.py`, `sati.py`, `vipassana.py`, `system.py` 等を追加し、階層構造を定義。
+    * `satipatthana/configs/` 下に `augmenter.py`, `sati.py`, `vipassana.py`, `system.py` 等を追加し、階層構造を定義。
 
-    * `samadhi/configs/enums.py` に `AugmenterType`, `SatiType`, `VipassanaType` を追加。
+    * `satipatthana/configs/enums.py` に `AugmenterType`, `SatiType`, `VipassanaType` を追加。
 
 **Phase 1 Tests**: PASSED (52 tests)
 
@@ -211,16 +211,16 @@ v3.1の構造をベースに、8コンポーネント制への移行、Engineと
 
 | ファイル | 説明 |
 |---------|------|
-| `samadhi/core/santana.py` | `SantanaLog` クラス - 軌跡ログ |
-| `samadhi/core/engines.py` | Engine プレースホルダー (Phase 3 で実装) |
-| `samadhi/core/system.py` | System プレースホルダー (Phase 4 で実装) |
-| `samadhi/components/augmenters/base.py` | `BaseAugmenter` 抽象クラス |
-| `samadhi/components/sati/base.py` | `BaseSati` 抽象クラス |
-| `samadhi/components/vipassana/base.py` | `BaseVipassana` 抽象クラス |
-| `samadhi/configs/augmenter.py` | Augmenter 設定 |
-| `samadhi/configs/sati.py` | Sati 設定 |
-| `samadhi/configs/vipassana.py` | Vipassana 設定 |
-| `samadhi/configs/system.py` | `SystemConfig`, `SamathaConfig`, `VipassanaEngineConfig` |
+| `satipatthana/core/santana.py` | `SantanaLog` クラス - 軌跡ログ |
+| `satipatthana/core/engines.py` | Engine プレースホルダー (Phase 3 で実装) |
+| `satipatthana/core/system.py` | System プレースホルダー (Phase 4 で実装) |
+| `satipatthana/components/augmenters/base.py` | `BaseAugmenter` 抽象クラス |
+| `satipatthana/components/sati/base.py` | `BaseSati` 抽象クラス |
+| `satipatthana/components/vipassana/base.py` | `BaseVipassana` 抽象クラス |
+| `satipatthana/configs/augmenter.py` | Augmenter 設定 |
+| `satipatthana/configs/sati.py` | Sati 設定 |
+| `satipatthana/configs/vipassana.py` | Vipassana 設定 |
+| `satipatthana/configs/system.py` | `SystemConfig`, `SamathaConfig`, `VipassanaEngineConfig` |
 
 **インターフェース定義:**
 
@@ -273,7 +273,7 @@ v3.1の構造をベースに、8コンポーネント制への移行、Engineと
 
 6. **Objectives (Migration)**: DONE
 
-    * `samadhi/train/objectives/` から `samadhi/components/objectives/` へ移動
+    * `satipatthana/train/objectives/` から `satipatthana/components/objectives/` へ移動
     * 後方互換性のため旧パスからの再エクスポートを維持
 
 **Phase 2 Tests**: PASSED (221 tests total)
@@ -290,15 +290,15 @@ v3.1の構造をベースに、8コンポーネント制への移行、Engineと
 
 | ファイル | 説明 |
 |---------|------|
-| `samadhi/components/augmenters/identity.py` | `IdentityAugmenter` 実装 |
-| `samadhi/components/augmenters/gaussian.py` | `GaussianNoiseAugmenter` 実装 |
-| `samadhi/components/sati/fixed_step.py` | `FixedStepSati` 実装 |
-| `samadhi/components/sati/threshold.py` | `ThresholdSati` 実装 |
-| `samadhi/components/vipassana/standard.py` | `StandardVipassana` 実装 |
-| `samadhi/components/decoders/conditional.py` | `ConditionalDecoder` 実装 |
-| `samadhi/components/decoders/auxiliary.py` | `SimpleAuxHead` 実装 |
-| `samadhi/components/objectives/*` | 全Objective (train/から移動) |
-| `samadhi/configs/decoders.py` | `ConditionalDecoderConfig`, `SimpleAuxHeadConfig` 追加 |
+| `satipatthana/components/augmenters/identity.py` | `IdentityAugmenter` 実装 |
+| `satipatthana/components/augmenters/gaussian.py` | `GaussianNoiseAugmenter` 実装 |
+| `satipatthana/components/sati/fixed_step.py` | `FixedStepSati` 実装 |
+| `satipatthana/components/sati/threshold.py` | `ThresholdSati` 実装 |
+| `satipatthana/components/vipassana/standard.py` | `StandardVipassana` 実装 |
+| `satipatthana/components/decoders/conditional.py` | `ConditionalDecoder` 実装 |
+| `satipatthana/components/decoders/auxiliary.py` | `SimpleAuxHead` 実装 |
+| `satipatthana/components/objectives/*` | 全Objective (train/から移動) |
+| `satipatthana/configs/decoders.py` | `ConditionalDecoderConfig`, `SimpleAuxHeadConfig` 追加 |
 
 **テストファイル:**
 
@@ -342,7 +342,7 @@ v3.1の構造をベースに、8コンポーネント制への移行、Engineと
 
 | ファイル | 説明 |
 |---------|------|
-| `samadhi/core/engines.py` | `SamathaEngine`, `VipassanaEngine` 実装 |
+| `satipatthana/core/engines.py` | `SamathaEngine`, `VipassanaEngine` 実装 |
 
 **SamathaEngine インターフェース:**
 
@@ -392,7 +392,7 @@ class VipassanaEngine(nn.Module):
 
 **Goal**: 4ステージ学習と推論フローを完成させる。
 
-1. **SamadhiSystem (New)**: DONE
+1. **SatipatthanaSystem (New)**: DONE
 
     * 全Engine (`Samatha`, `Vipassana`) と Decoders (`Task`, `ReconHeads`, `AuxiliaryHead`) を統括。
 
@@ -412,7 +412,7 @@ class VipassanaEngine(nn.Module):
 
     * `StabilityLoss`: 軌跡エネルギーに基づく安定性損失
 
-3. **SamadhiV4Trainer (New)**: DONE
+3. **SatipatthanaTrainer (New)**: DONE
 
     * HuggingFace Trainerベースの4ステージカリキュラムトレーナー
 
@@ -438,11 +438,11 @@ class VipassanaEngine(nn.Module):
 
 | ファイル | 説明 |
 |---------|------|
-| `samadhi/core/system.py` | `SamadhiSystem`, `TrainingStage`, `SystemOutput` 実装 |
-| `samadhi/components/objectives/vipassana.py` | `VipassanaObjective`, `GuidanceLoss`, `StabilityLoss` 実装 |
-| `samadhi/train/v4_trainer.py` | `SamadhiV4Trainer`, `Stage2NoiseStrategy` 実装 |
+| `satipatthana/core/system.py` | `SatipatthanaSystem`, `TrainingStage`, `SystemOutput` 実装 |
+| `satipatthana/components/objectives/vipassana.py` | `VipassanaObjective`, `GuidanceLoss`, `StabilityLoss` 実装 |
+| `satipatthana/train/v4_trainer.py` | `SatipatthanaTrainer`, `Stage2NoiseStrategy` 実装 |
 
-**SamadhiSystem インターフェース:**
+**SatipatthanaSystem インターフェース:**
 
 ```python
 class TrainingStage(IntEnum):
@@ -452,7 +452,7 @@ class TrainingStage(IntEnum):
     DECODER_FINETUNING = 3
     INFERENCE = -1
 
-class SamadhiSystem(nn.Module):
+class SatipatthanaSystem(nn.Module):
     def __init__(self, config, samatha, vipassana, task_decoder,
                  adapter_recon_head=None, samatha_recon_head=None, auxiliary_head=None):
         ...
@@ -476,10 +476,10 @@ class SamadhiSystem(nn.Module):
         """推論モード"""
 ```
 
-**SamadhiV4Trainer インターフェース:**
+**SatipatthanaTrainer インターフェース:**
 
 ```python
-class SamadhiV4Trainer(Trainer):
+class SatipatthanaTrainer(Trainer):
     def __init__(self, model, args, stage, noise_level=0.3,
                  use_label_guidance=False, task_type="classification", ...):
         ...
@@ -497,7 +497,7 @@ class SamadhiV4Trainer(Trainer):
 
 **テストファイル:**
 
-* `tests/core/test_system.py` - SamadhiSystem 統合テスト (21 tests)
+* `tests/core/test_system.py` - SatipatthanaSystem 統合テスト (21 tests)
 * `tests/components/objectives/test_vipassana_objective.py` - Vipassana Objective テスト (15 tests)
 * `tests/train/test_v4_trainer.py` - V4 Trainer テスト (13 tests)
 

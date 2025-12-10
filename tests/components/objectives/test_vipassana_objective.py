@@ -5,12 +5,12 @@ Tests for VipassanaObjective, GuidanceLoss, and StabilityLoss.
 import pytest
 import torch
 
-from samadhi.components.objectives.vipassana import (
+from satipatthana.components.objectives.vipassana import (
     VipassanaObjective,
     GuidanceLoss,
     StabilityLoss,
 )
-from samadhi.core.santana import SantanaLog
+from satipatthana.core.santana import SantanaLog
 
 
 class TestVipassanaObjective:

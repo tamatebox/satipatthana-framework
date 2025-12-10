@@ -3,8 +3,8 @@
 hide footbox
 skinparam sequenceMessageAlign center
 
-participant "Trainer\n(SamadhiTrainer)" as Trainer
-participant "System\n(SamadhiSystem)" as System
+participant "Trainer\n(SatipatthanaTrainer)" as Trainer
+participant "System\n(SatipatthanaSystem)" as System
 participant "Adapter" as Adapter
 participant "ReconHead\n(ReconHead_Adapter)" as ReconHead
 participant "Loss\n(Reconstruction)" as Loss

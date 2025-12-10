@@ -4,7 +4,7 @@ Tests for SantanaLog class.
 
 import pytest
 import torch
-from samadhi.core.santana import SantanaLog
+from satipatthana.core.santana import SantanaLog
 
 
 class TestSantanaLog:

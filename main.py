@@ -1,5 +1,5 @@
 def main():
-    print("Hello from samadhi-model!")
+    print("Hello from satipatthana!")
 
 
 if __name__ == "__main__":

@@ -27,7 +27,7 @@
 ## 2. アーキテクチャ概要
 
 **注意:** 以下のディレクトリ構成とコードスニペットは、計画段階の初期案であり、最終的な実装とは異なります。
-最新のConfigシステムの構造については、[`samadhi/configs/README.md`](samadhi/configs/README.md) を参照してください。
+最新のConfigシステムの構造については、[`satipatthana/configs/README.md`](satipatthana/configs/README.md) を参照してください。
 
 ### 2.1 設定クラスの階層構造
 
@@ -47,9 +47,9 @@ BaseConfig (validate, from_dict)
 Enum定義も含める。
 
 ```text
-# この構成は初期案であり、最終的な実装では samadhi/configs/ 内のファイルがより細かく分割されました。
-# 最新のファイル構成は samadhi/configs/README.md を参照してください。
-samadhi/configs/
+# この構成は初期案であり、最終的な実装では satipatthana/configs/ 内のファイルがより細かく分割されました。
+# 最新のファイル構成は satipatthana/configs/README.md を参照してください。
+satipatthana/configs/
 ├── __init__.py
 ├── main.py            # SamadhiConfig
 ├── base.py            # BaseConfig (共通ロジック)
@@ -61,14 +61,14 @@ samadhi/configs/
 ## 3. 実装詳細
 
 **注意:** 以下のコードスニペットは、計画段階の初期案であり、現在の実装とは異なります。
-最新の実装詳細については、各Configファイル（`samadhi/configs/adapters.py`など）および[`docs/config_summary.md`](docs/config_summary.md)を参照してください。
+最新の実装詳細については、各Configファイル（`satipatthana/configs/adapters.py`など）および[`docs/config_summary.md`](docs/config_summary.md)を参照してください。
 
-### 3.1 共通基底クラス (`samadhi/configs/base.py`)
+### 3.1 共通基底クラス (`satipatthana/configs/base.py`)
 
 全てのConfigの親クラス。`from_dict` による安全な生成と `validate` フックを提供する。
 
 ```python
-# (中略) 最新のコードは samadhi/configs/base.py を参照
+# (中略) 最新のコードは satipatthana/configs/base.py を参照
 @dataclass
 class BaseConfig:
     # ...
@@ -78,12 +78,12 @@ class BaseConfig:
         # ...
 ```
 
-### 3.2 Enum定義 (`samadhi/configs/enums.py`)
+### 3.2 Enum定義 (`satipatthana/configs/enums.py`)
 
 文字列リテラルのタイポを防ぐ。
 
 ```python
-# (中略) 最新のコードは samadhi/configs/enums.py を参照
+# (中略) 最新のコードは satipatthana/configs/enums.py を参照
 class AdapterType(str, Enum):
     MLP = "mlp"
     CNN = "cnn"
@@ -92,26 +92,26 @@ class AdapterType(str, Enum):
 # ...
 ```
 
-### 3.3 コンポーネントConfig定義 (`samadhi/configs/components.py`)
+### 3.3 コンポーネントConfig定義 (`satipatthana/configs/components.py`)
 
-**このファイルは削除され、機能は `samadhi/configs/adapters.py`, `samadhi/configs/vicara.py`, `samadhi/configs/vitakka.py`, `samadhi/configs/decoders.py`, `samadhi/configs/objectives.py` に分割されました。**
+**このファイルは削除され、機能は `satipatthana/configs/adapters.py`, `satipatthana/configs/vicara.py`, `satipatthana/configs/vitakka.py`, `satipatthana/configs/decoders.py`, `satipatthana/configs/objectives.py` に分割されました。**
 
-### 3.4 変換ファクトリ (`samadhi/configs/factory.py`)
+### 3.4 変換ファクトリ (`satipatthana/configs/factory.py`)
 
 Enumを使って分岐し、`from_dict` を呼び出す。非常にシンプルになる。
 
 ```python
-# (中略) 最新のコードは samadhi/configs/factory.py を参照
+# (中略) 最新のコードは satipatthana/configs/factory.py を参照
 # ファクトリ関数は、ObjectiveConfigを含む全てのConfigコンポーネントに対応するようになりました。
 # また、型解決のためのより堅牢なロジックが追加されました。
 ```
 
-### 3.5 全体Config定義 (`samadhi/configs/main.py`)
+### 3.5 全体Config定義 (`satipatthana/configs/main.py`)
 
 `BaseConfig` を継承。ネスト構造の復元ロジックも整理。
 
 ```python
-# (中略) 最新のコードは samadhi/configs/main.py を参照
+# (中略) 最新のコードは satipatthana/configs/main.py を参照
 # SamadhiConfigは objective 設定もネストするようになり、
 # from_dict メソッドもフラットな辞書からの objective 関連パラメータの抽出に対応しました。
 ```
@@ -121,4 +121,4 @@ Enumを使って分岐し、`from_dict` を呼び出す。非常にシンプル�
 **このセクションで記述された移行作業はすべて完了しました。**
 
 Configシステムのリファクタリングは計画通りに完了し、コードベース全体に適用されました。
-これに伴い、[`samadhi/configs/README.md`](samadhi/configs/README.md)と[`docs/config_summary.md`](docs/config_summary.md)が最新のConfigシステムの構造と使い方を記述しています。
+これに伴い、[`satipatthana/configs/README.md`](satipatthana/configs/README.md)と[`docs/config_summary.md`](docs/config_summary.md)が最新のConfigシステムの構造と使い方を記述しています。

@@ -6,8 +6,8 @@ import pytest
 import torch
 from typing import Tuple
 
-from samadhi.components.augmenters.base import BaseAugmenter
-from samadhi.configs.augmenter import IdentityAugmenterConfig
+from satipatthana.components.augmenters.base import BaseAugmenter
+from satipatthana.configs.augmenter import IdentityAugmenterConfig
 
 
 class MockAugmenter(BaseAugmenter):

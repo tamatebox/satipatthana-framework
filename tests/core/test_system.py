@@ -1,5 +1,5 @@
 """
-Tests for SamadhiSystem (Phase 4).
+Tests for SatipatthanaSystem (Phase 4).
 
 These tests verify:
 - System initialization and component integration
@@ -11,28 +11,28 @@ These tests verify:
 import pytest
 import torch
 
-from samadhi.core.system import SamadhiSystem, TrainingStage, SystemOutput
-from samadhi.core.engines import SamathaEngine, VipassanaEngine
-from samadhi.core.santana import SantanaLog
-from samadhi.configs.system import SystemConfig, SamathaConfig, VipassanaEngineConfig
-from samadhi.configs.adapters import MlpAdapterConfig
-from samadhi.configs.vitakka import StandardVitakkaConfig
-from samadhi.configs.vicara import StandardVicaraConfig
-from samadhi.configs.sati import FixedStepSatiConfig
-from samadhi.configs.augmenter import IdentityAugmenterConfig
-from samadhi.configs.vipassana import StandardVipassanaConfig
-from samadhi.configs.decoders import ConditionalDecoderConfig, ReconstructionDecoderConfig, SimpleAuxHeadConfig
+from satipatthana.core.system import SatipatthanaSystem, TrainingStage, SystemOutput
+from satipatthana.core.engines import SamathaEngine, VipassanaEngine
+from satipatthana.core.santana import SantanaLog
+from satipatthana.configs.system import SystemConfig, SamathaConfig, VipassanaEngineConfig
+from satipatthana.configs.adapters import MlpAdapterConfig
+from satipatthana.configs.vitakka import StandardVitakkaConfig
+from satipatthana.configs.vicara import StandardVicaraConfig
+from satipatthana.configs.sati import FixedStepSatiConfig
+from satipatthana.configs.augmenter import IdentityAugmenterConfig
+from satipatthana.configs.vipassana import StandardVipassanaConfig
+from satipatthana.configs.decoders import ConditionalDecoderConfig, ReconstructionDecoderConfig, SimpleAuxHeadConfig
 
-from samadhi.components.adapters.mlp import MlpAdapter
-from samadhi.components.augmenters.identity import IdentityAugmenter
-from samadhi.components.vitakka.standard import StandardVitakka
-from samadhi.components.vicara.standard import StandardVicara
-from samadhi.components.refiners.mlp import MlpRefiner
-from samadhi.components.sati.fixed_step import FixedStepSati
-from samadhi.components.vipassana.standard import StandardVipassana
-from samadhi.components.decoders.conditional import ConditionalDecoder
-from samadhi.components.decoders.reconstruction import ReconstructionDecoder
-from samadhi.components.decoders.auxiliary import SimpleAuxHead
+from satipatthana.components.adapters.mlp import MlpAdapter
+from satipatthana.components.augmenters.identity import IdentityAugmenter
+from satipatthana.components.vitakka.standard import StandardVitakka
+from satipatthana.components.vicara.standard import StandardVicara
+from satipatthana.components.refiners.mlp import MlpRefiner
+from satipatthana.components.sati.fixed_step import FixedStepSati
+from satipatthana.components.vipassana.standard import StandardVipassana
+from satipatthana.components.decoders.conditional import ConditionalDecoder
+from satipatthana.components.decoders.reconstruction import ReconstructionDecoder
+from satipatthana.components.decoders.auxiliary import SimpleAuxHead
 
 
 # Constants
@@ -126,8 +126,8 @@ def aux_head():
 
 @pytest.fixture
 def system(system_config, samatha_engine, vipassana_engine, task_decoder):
-    """Create SamadhiSystem for testing."""
-    return SamadhiSystem(
+    """Create SatipatthanaSystem for testing."""
+    return SatipatthanaSystem(
         config=system_config,
         samatha=samatha_engine,
         vipassana=vipassana_engine,
@@ -137,8 +137,8 @@ def system(system_config, samatha_engine, vipassana_engine, task_decoder):
 
 @pytest.fixture
 def system_full(system_config, samatha_engine, vipassana_engine, task_decoder, recon_decoder, aux_head):
-    """Create SamadhiSystem with all optional heads."""
-    return SamadhiSystem(
+    """Create SatipatthanaSystem with all optional heads."""
+    return SatipatthanaSystem(
         config=system_config,
         samatha=samatha_engine,
         vipassana=vipassana_engine,
@@ -149,8 +149,8 @@ def system_full(system_config, samatha_engine, vipassana_engine, task_decoder, r
     )
 
 
-class TestSamadhiSystem:
-    """Tests for SamadhiSystem basic functionality."""
+class TestSatipatthanaSystem:
+    """Tests for SatipatthanaSystem basic functionality."""
 
     def test_initialization(self, system, system_config):
         """Test system initialization."""
@@ -238,7 +238,7 @@ class TestTrainingStages:
     ):
         """Test Stage 1 with label guidance enabled."""
         system_config.use_label_guidance = True
-        system = SamadhiSystem(
+        system = SatipatthanaSystem(
             config=system_config,
             samatha=samatha_engine,
             vipassana=vipassana_engine,
@@ -316,7 +316,7 @@ class TestStageForwardPasses:
     ):
         """Test Stage 1 with label guidance."""
         system_config.use_label_guidance = True
-        system = SamadhiSystem(
+        system = SatipatthanaSystem(
             config=system_config,
             samatha=samatha_engine,
             vipassana=vipassana_engine,

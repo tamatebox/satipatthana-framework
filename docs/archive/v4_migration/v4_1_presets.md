@@ -8,7 +8,7 @@ v4.0 では旧 `SamadhiBuilder` パターンを廃止し、コンポーネント
 
 ## 2. 目的 (Goals)
 
-1. **簡潔なAPI**: 1行で `SamadhiSystem` を構築可能にする
+1. **簡潔なAPI**: 1行で `SatipatthanaSystem` を構築可能にする
 2. **型安全性**: 設定の型チェックを維持
 3. **柔軟性**: デフォルト値を使いつつ、必要に応じてカスタマイズ可能
 4. **ドメイン別最適化**: Tabular / Vision / Sequence 各ドメインに最適なデフォルト構成を提供
@@ -18,7 +18,7 @@ v4.0 では旧 `SamadhiBuilder` パターンを廃止し、コンポーネント
 ### 3.1. 基本シグネチャ
 
 ```python
-from samadhi.presets import create_mlp_system, create_conv_system, create_lstm_system
+from satipatthana.presets import create_mlp_system, create_conv_system, create_lstm_system
 
 # Tabular データ用
 system = create_mlp_system(
@@ -49,7 +49,7 @@ system = create_lstm_system(
 
 ### 3.2. 戻り値
 
-すべてのPreset関数は `SamadhiSystem` インスタンスを返します。
+すべてのPreset関数は `SatipatthanaSystem` インスタンスを返します。
 
 ```python
 system = create_mlp_system(input_dim=128, output_dim=10)
@@ -60,8 +60,8 @@ print(result.output)       # 予測結果
 print(result.trust_score)  # 信頼度
 
 # 学習
-from samadhi.train import SamadhiV4Trainer
-trainer = SamadhiV4Trainer(model=system, ...)
+from satipatthana.train import SatipatthanaTrainer
+trainer = SatipatthanaTrainer(model=system, ...)
 trainer.run_curriculum(...)
 ```
 
@@ -103,8 +103,8 @@ def create_mlp_system(
     n_probes: int = 5,
     max_steps: int = 10,
     **kwargs,
-) -> SamadhiSystem:
-    """MLP-based SamadhiSystem for tabular data."""
+) -> SatipatthanaSystem:
+    """MLP-based SatipatthanaSystem for tabular data."""
 
     # 1. Configs
     adapter_config = MlpAdapterConfig(input_dim=input_dim, dim=dim)
@@ -145,7 +145,7 @@ def create_mlp_system(
     )
 
     # 4. System
-    system = SamadhiSystem(
+    system = SatipatthanaSystem(
         config=system_config,
         samatha=samatha,
         vipassana=vipassana,
@@ -158,7 +158,7 @@ def create_mlp_system(
 ### 4.2. ディレクトリ構造
 
 ```
-samadhi/presets/
+satipatthana/presets/
 ├── __init__.py          # 全Preset関数をエクスポート
 ├── tabular.py           # create_mlp_system
 ├── vision.py            # create_conv_system
@@ -196,7 +196,7 @@ samadhi/presets/
 # tests/presets/test_tabular.py
 def test_create_mlp_system_basic():
     system = create_mlp_system(input_dim=128, output_dim=10)
-    assert isinstance(system, SamadhiSystem)
+    assert isinstance(system, SatipatthanaSystem)
 
     x = torch.randn(4, 128)
     result = system(x)
@@ -231,7 +231,7 @@ engine = (
 system = create_mlp_system(input_dim=128, output_dim=10)
 
 # または: 完全なカスタム構築
-system = SamadhiSystem(
+system = SatipatthanaSystem(
     config=system_config,
     samatha=samatha,
     vipassana=vipassana,

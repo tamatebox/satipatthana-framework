@@ -5,9 +5,9 @@ Tests for ThresholdSati implementation.
 import pytest
 import torch
 
-from samadhi.components.sati.threshold import ThresholdSati
-from samadhi.configs.sati import ThresholdSatiConfig
-from samadhi.core.santana import SantanaLog
+from satipatthana.components.sati.threshold import ThresholdSati
+from satipatthana.configs.sati import ThresholdSatiConfig
+from satipatthana.core.santana import SantanaLog
 
 
 class TestThresholdSati:

@@ -1,6 +1,6 @@
 import pytest
-from samadhi.configs.adapters import CnnAdapterConfig, BaseAdapterConfig
-from samadhi.configs.vicara import BaseVicaraConfig
+from satipatthana.configs.adapters import CnnAdapterConfig, BaseAdapterConfig
+from satipatthana.configs.vicara import BaseVicaraConfig
 
 
 def test_adapter_dropout_validation():

@@ -6,9 +6,9 @@ import pytest
 import torch
 from typing import Tuple
 
-from samadhi.components.vipassana.base import BaseVipassana
-from samadhi.core.santana import SantanaLog
-from samadhi.configs.vipassana import StandardVipassanaConfig, LSTMVipassanaConfig
+from satipatthana.components.vipassana.base import BaseVipassana
+from satipatthana.core.santana import SantanaLog
+from satipatthana.configs.vipassana import StandardVipassanaConfig, LSTMVipassanaConfig
 
 
 class MockVipassana(BaseVipassana):

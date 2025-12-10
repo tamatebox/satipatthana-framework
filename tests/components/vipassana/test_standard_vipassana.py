@@ -5,9 +5,9 @@ Tests for StandardVipassana implementation.
 import pytest
 import torch
 
-from samadhi.components.vipassana.standard import StandardVipassana
-from samadhi.configs.vipassana import StandardVipassanaConfig
-from samadhi.core.santana import SantanaLog
+from satipatthana.components.vipassana.standard import StandardVipassana
+from satipatthana.configs.vipassana import StandardVipassanaConfig
+from satipatthana.core.santana import SantanaLog
 
 
 class TestStandardVipassana:
