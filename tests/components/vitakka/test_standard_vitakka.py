@@ -33,7 +33,6 @@ def test_standard_vitakka_initialization(config):
     adapter = MockAdapter(config)
     vitakka = StandardVitakka(config)  # No adapter argument needed
     assert isinstance(vitakka, StandardVitakka)
-    # vitakka.adapter is not directly set in StandardVitakka, but in SamadhiEngine
     assert vitakka.probes.shape == (config["n_probes"], config["dim"])
 
 
