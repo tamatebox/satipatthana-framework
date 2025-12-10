@@ -176,7 +176,10 @@ class SatipatthanaSystem(nn.Module):
         dtype = x.dtype
 
         # 1. Samatha: Convergence
-        s_star, santana, severity = self.samatha(x, noise_level=noise_level, drunk_mode=drunk_mode)
+        samatha_output = self.samatha(x, noise_level=noise_level, drunk_mode=drunk_mode)
+        s_star = samatha_output.s_star
+        santana = samatha_output.santana
+        severity = samatha_output.severity
 
         # 2. Vipassana: Introspection (optional)
         if run_vipassana:
@@ -248,7 +251,7 @@ class SatipatthanaSystem(nn.Module):
         self,
         x: torch.Tensor,
         noise_level: float = 0.0,
-    ) -> Dict[str, torch.Tensor]:
+    ) -> Dict[str, Any]:
         """
         Stage 1: Samatha training forward.
 
@@ -259,24 +262,25 @@ class SatipatthanaSystem(nn.Module):
             noise_level: Augmentation noise level
 
         Returns:
-            Dictionary with s_star, x_recon, aux_output (if applicable)
+            Dictionary with s_star, santana, severity, stability_pair, x_recon, aux_output (if applicable)
         """
-        # Run Samatha
-        s_star, santana, severity = self.samatha(x, noise_level=noise_level)
+        # Run Samatha - returns SamathaOutput with stability_pair
+        samatha_output = self.samatha(x, noise_level=noise_level)
 
         result = {
-            "s_star": s_star,
-            "santana": santana,
-            "severity": severity,
+            "s_star": samatha_output.s_star,
+            "santana": samatha_output.santana,
+            "severity": samatha_output.severity,
+            "stability_pair": samatha_output.stability_pair,
         }
 
         # Samatha reconstruction
         if self.samatha_recon_head is not None:
-            result["x_recon"] = self.samatha_recon_head(s_star)
+            result["x_recon"] = self.samatha_recon_head(samatha_output.s_star)
 
         # Auxiliary head for label guidance
         if self.config.use_label_guidance and self.auxiliary_head is not None:
-            result["aux_output"] = self.auxiliary_head(s_star)
+            result["aux_output"] = self.auxiliary_head(samatha_output.s_star)
 
         return result
 
@@ -285,7 +289,7 @@ class SatipatthanaSystem(nn.Module):
         x: torch.Tensor,
         noise_level: float = 0.0,
         drunk_mode: bool = False,
-    ) -> Dict[str, torch.Tensor]:
+    ) -> Dict[str, Any]:
         """
         Stage 2: Vipassana training forward.
 
@@ -301,7 +305,10 @@ class SatipatthanaSystem(nn.Module):
         """
         # Run Samatha (frozen in Stage 2)
         with torch.no_grad():
-            s_star_detached, santana, severity = self.samatha(x, noise_level=noise_level, drunk_mode=drunk_mode)
+            samatha_output = self.samatha(x, noise_level=noise_level, drunk_mode=drunk_mode)
+            s_star_detached = samatha_output.s_star
+            santana = samatha_output.santana
+            severity = samatha_output.severity
 
         # Clone s_star and enable gradients for Vipassana's input
         # This allows Vipassana to compute gradients through its own parameters
@@ -318,7 +325,7 @@ class SatipatthanaSystem(nn.Module):
             "trust_score": trust_score,
         }
 
-    def forward_stage3(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward_stage3(self, x: torch.Tensor) -> Dict[str, Any]:
         """
         Stage 3: Decoder fine-tuning forward.
 
@@ -332,7 +339,9 @@ class SatipatthanaSystem(nn.Module):
         """
         # Run Samatha (frozen)
         with torch.no_grad():
-            s_star, santana, severity = self.samatha(x)
+            samatha_output = self.samatha(x)
+            s_star = samatha_output.s_star
+            santana = samatha_output.santana
 
         # Run Vipassana (frozen)
         with torch.no_grad():

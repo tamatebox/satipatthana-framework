@@ -420,7 +420,9 @@ class TestGradientFlow:
 
         # Run Samatha (frozen in Stage 2)
         with torch.no_grad():
-            s_star, santana, severity = system.samatha(x)
+            samatha_output = system.samatha(x)
+            s_star = samatha_output.s_star
+            santana = samatha_output.santana
 
         # Run Vipassana (trainable) - NOT in no_grad context
         # Note: s_star needs requires_grad=True to allow gradient flow through Vipassana
