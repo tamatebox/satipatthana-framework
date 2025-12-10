@@ -17,6 +17,11 @@ from samadhi.components.objectives.supervised_regression import (
 )
 from samadhi.components.objectives.robust_regression import RobustRegressionObjective
 from samadhi.components.objectives.cosine_similarity import CosineSimilarityObjective
+from samadhi.components.objectives.vipassana import (
+    VipassanaObjective,
+    GuidanceLoss,
+    StabilityLoss,
+)
 
 __all__ = [
     "BaseObjective",
@@ -27,4 +32,7 @@ __all__ = [
     "SupervisedRegressionObjective",
     "RobustRegressionObjective",
     "CosineSimilarityObjective",
+    "VipassanaObjective",
+    "GuidanceLoss",
+    "StabilityLoss",
 ]
