@@ -1,26 +1,75 @@
-# Satipatthana Framework (Introspective Deep Convergence Architecture) Specification
+# Satipatthana Framework Specification
 
 **Version:** 4.0 (The Three Engines & Guided Convergence)
 **Status:** Active Specification
 
 -----
 
-## 1. Concept Definition
+## 1. Overview
 
-The **Satipatthana Framework** is an **introspective recursive attention architecture** designed to **converge towards essential structures (Samatha)** from chaotic information streams and **introspect (Vipassana)** that process to explain its own confidence.
+### 1.1. Purpose
 
-The name "Satipatthana" (念処) means "establishment of mindfulness", symbolizing the architecture's essence of discerning truth through self-observation and introspection.
+This document is the **implementation specification** for the Satipatthana Framework. It defines:
 
-* **Core Philosophy:** In contrast to traditional "divergence/generation" models, adopts a three-phase approach of "convergence/introspection/expression".
-* **Operational Mode:** Progressive knowledge acquisition through a 4-stage curriculum (Adapter → Samatha → Vipassana → Decoder).
+* System architecture and data flow
+* Component interfaces and responsibilities
+* Mathematical formulations (update rules, loss functions)
+* Training curriculum
+* Hyperparameters
+
+For theoretical background and design rationale, see [theory_en.md](theory_en.md).
+
+### 1.2. Target Audience
+
+* **ML Engineers** implementing or extending the framework
+* **Researchers** reproducing experiments
+* **Code Reviewers** understanding system behavior
+
+### 1.3. Prerequisites
+
+* Basic understanding of deep learning (PyTorch)
+* Familiarity with attention mechanisms
+* Understanding of fixed-point iteration (helpful but not required)
 
 -----
 
-## 2. System Architecture
+## 2. Terminology & Symbols
+
+### 2.1. Key Symbols
+
+| Symbol | Type | Description |
+|:---|:---|:---|
+| $X$ | Tensor (Batch, *) | Raw input data |
+| $z$ | Tensor (Batch, $d$) | Adapted latent vector |
+| $S_t$ | Tensor (Batch, $d$) | Latent state at iteration $t$ |
+| $S^*$ | Tensor (Batch, $d$) | Converged fixed-point state |
+| $S_0$ | Tensor (Batch, $d$) | Initial state from Vitakka |
+| $P_k$ | Tensor ($d$,) | $k$-th concept probe vector |
+| $V_{ctx}$ | Tensor (Batch, $c$) | Vipassana context vector |
+| $\alpha$ | Tensor (Batch, 1) | Trust score (0.0–1.0) |
+| $Y$ | Tensor (Batch, output_dim) | Final output |
+| $\mathcal{T}$ | SantanaLog | Thinking trajectory $[S_0, S_1, \dots, S^*]$ |
+
+### 2.2. Hyperparameter Symbols
+
+| Symbol | Description | Typical Range |
+|:---|:---|:---|
+| $d$ | Latent space dimension | 64–256 |
+| $c$ | Vipassana context dimension | 32–128 |
+| $K$ | Number of concept probes | 8–32 |
+| $T$ | Maximum Vicara steps | 6–20 |
+| $\beta$ | State update inertia | 0.3–0.7 |
+| $\epsilon$ | Convergence threshold (Sati) | 1e-4 |
+| $\lambda_r$ | Reconstruction loss weight | 0.1–0.3 |
+| $\lambda_g$ | Guidance loss weight | 0.1–0.5 |
+
+-----
+
+## 3. System Architecture
 
 This framework consists of three main engines (Samatha, Vipassana, Decoder) and modular components that compose them.
 
-### 2.1. Data Flow Overview
+### 3.1. Data Flow Overview
 
 ```txt
 Raw Input (X)
@@ -35,7 +84,11 @@ Raw Input (X)
     S* + V_ctx → Output (Y)
 ```
 
-### 2.2. Engine 1: SamathaEngine (The Meditator)
+### 3.2. Class Diagram
+
+![Class Diagram](diagrams/images/v4_class_diagram.png)
+
+### 3.3. Engine 1: SamathaEngine
 
 **Role:** World model. Converges any input to a "meaningful point".
 
@@ -58,7 +111,7 @@ Raw Input (X)
 
 **Features:** Independent of tasks or labels, performs only "structure extraction". Internal perturbation control is possible via `drunk_mode` flag.
 
-### 2.3. Engine 2: VipassanaEngine (The Observer)
+### 3.4. Engine 2: VipassanaEngine
 
 **Role:** Meta-cognition. Monitors whether Samatha's thinking process (log) was sound.
 
@@ -70,7 +123,7 @@ Raw Input (X)
 
 **Structure:** `StandardVipassana` (LogEncoder + ConfidenceMonitor)
 
-### 2.4. Engine 3: ConditionalDecoder (The Speaker)
+### 3.5. Engine 3: ConditionalDecoder
 
 **Role:** Expression. Integrates state and context into human-understandable form.
 
@@ -79,7 +132,7 @@ Raw Input (X)
 
 **Features:** Enables "humble expression"—when uncertain, output reflects that uncertainty (e.g., wider variance). **The only Decoder used during inference.**
 
-### 2.5. Reconstruction Heads & AuxHead (Training Auxiliary)
+### 3.6. Reconstruction Heads & AuxHead (Training Auxiliary)
 
 Auxiliary modules for training stabilization. **Not used during inference.**
 
@@ -98,34 +151,50 @@ Stage 1's `AuxHead` and Stage 3's `ConditionalDecoder` are **physically separate
 
 -----
 
-## 3. Component Details
+## 4. Component Details
 
-### 3.1. Adapter (Manasikāra - Input Adaptation)
+### 4.0. Component I/O Summary
+
+| Component | Input | Output | Interface |
+|:---|:---|:---|:---|
+| **Adapter** | $X$ (Batch, *) | $z$ (Batch, $d$) | `BaseAdapter` |
+| **Augmenter** | $X$ (Batch, *) | $(X_{aug}, severity)$ | `BaseAugmenter` |
+| **Vitakka** | $z$ (Batch, $d$) | $(S_0, metadata)$ | `BaseVitakka` |
+| **Vicara** | $S_t$ (Batch, $d$), context | $S_{t+1}$ (Batch, $d$) | `BaseVicara` |
+| **Sati** | $S_t$, $\mathcal{T}$ | $(should\_stop, info)$ | `BaseSati` |
+| **Vipassana** | $S^*$, $\mathcal{T}$ | $(V_{ctx}, \alpha)$ | `BaseVipassana` |
+| **ConditionalDecoder** | $S^* \oplus V_{ctx}$ (Batch, $d+c$) | $Y$ (Batch, output\_dim) | `BaseDecoder` |
+
+### 4.1. Adapter
 
 **Function:** Projects and normalizes raw external input $X_{raw}$ to latent space.
 
 * **Interface:** `BaseAdapter`
 * **Implementations:** `MlpAdapter`, `CnnAdapter`, `LstmAdapter`, `TransformerAdapter`
+* **Input:** Raw data $X$ (Batch, *)
 * **Output:** Latent vector $z \in \mathbb{R}^d$
 
-### 3.2. Augmenter (Input Perturbation)
+### 4.2. Augmenter
 
 **Function:** Applies environmental noise or perturbation to input.
 
 * **Interface:** `BaseAugmenter`
 * **Implementations:** `IdentityAugmenter`, `GaussianNoiseAugmenter`
-* **Output:** `(x_augmented, severity)` - severity is per-sample noise intensity
+* **Input:** Raw data $X$ (Batch, *)
+* **Output:** `(x_augmented, severity)` — severity is per-sample noise intensity $\in [0, 1]$
 
-### 3.3. Vitakka (Search & Orientation)
+### 4.3. Vitakka
 
 **Function:** Initial attractor search in latent space.
 
 1. **Active Resonance:** Calculates resonance between concept probes $\mathbf{P}$ and input
 2. **$S_0$ Generation:** Uses winner probe as Query to generate initial state
 
-* **Output:** `(s0, metadata)` - metadata includes winner_id, probs, etc.
+* **Interface:** `BaseVitakka`
+* **Input:** Latent vector $z$ (Batch, $d$)
+* **Output:** `(s0, metadata)` — metadata includes `winner_id`, `probs`, etc.
 
-### 3.4. Vicara (Single-Step Refinement)
+### 4.4. Vicara
 
 **Function:** Single-step state update.
 
@@ -133,6 +202,8 @@ $$S_{t+1} = (1 - \beta) S_t + \beta \Phi(S_t)$$
 
 * **Interface:** `BaseVicara`
 * **Implementations:** `StandardVicara`, `WeightedVicara`, `ProbeSpecificVicara`
+* **Input:** Current state $S_t$ (Batch, $d$), optional context from Vitakka
+* **Output:** Next state $S_{t+1}$ (Batch, $d$)
 * **Responsibility:** Single-step update only. Loop control is delegated to SamathaEngine.
 
 **Variants:**
@@ -143,20 +214,24 @@ $$S_{t+1} = (1 - \beta) S_t + \beta \Phi(S_t)$$
 | `WeightedVicara` | Weighted combination of multiple Refiners |
 | `ProbeSpecificVicara` | Selects Refiner based on Vitakka's winner probe/probability |
 
-### 3.5. Sati (Mindfulness - Convergence Check)
+### 4.5. Sati
 
 **Function:** Convergence check and stopping control.
 
 * **Interface:** `BaseSati`
 * **Implementations:** `FixedStepSati`, `ThresholdSati`
+* **Input:** Current state $S_t$ (Batch, $d$), trajectory $\mathcal{T}$
+* **Output:** `(should_stop: bool, info: dict)`
 * **Stop Condition:** Stops when state change energy $||S_{t+1} - S_t||$ falls below threshold $\epsilon$
 
-### 3.6. Vipassana (Introspection)
+### 4.6. Vipassana
 
 **Function:** Meta-cognition module that monitors Samatha's thinking log and evaluates logical consistency and confidence.
 
 * **Interface:** `BaseVipassana`
 * **Implementation:** `StandardVipassana`
+* **Input:** Converged state $S^*$ (Batch, $d$), trajectory $\mathcal{T}$
+* **Output:** Context vector $V_{ctx}$ (Batch, $c$), trust score $\alpha$ (Batch, 1)
 * **LogEncoder:** Compresses time-series log $\mathcal{T}$ into fixed-length vector
   * **Recommended Implementation:** Bi-LSTM or Transformer Encoder (1-2 layers). A time-series model is essential to capture "order" of thinking and "acceleration of convergence".
 * **ConfidenceMonitor:** Detects "hesitation" or "contradiction", outputs trust score $\alpha$ and context vector $V_{ctx}$
@@ -169,17 +244,19 @@ $$S_{t+1} = (1 - \beta) S_t + \beta \Phi(S_t)$$
 
 -----
 
-## 4. Mathematical Formulation
+## 5. Mathematical Formulation
 
-### 4.1. Samatha Phase (Convergence)
+### 5.1. Samatha Phase (Convergence)
 
 **State update rule:**
 $$S_{t+1} = (1 - \beta) S_t + \beta \Phi(S_t)$$
 
+**Convergence guarantee:** The inertial update with $\beta \in (0, 1)$ reduces the effective Lipschitz constant of the mapping. If $\Phi$ has Lipschitz constant $L$, the combined mapping has effective constant $L_{eff} = (1 - \beta) + \beta L$. When $L < 1$ or when stability loss encourages contraction, convergence to a fixed point is promoted.
+
 **Stop condition (Sati):**
 $$\text{Stop if } ||S_{t+1} - S_t|| < \epsilon_{sati}$$
 
-### 4.2. Vipassana Phase (Introspection)
+### 5.2. Vipassana Phase (Introspection)
 
 Calculates trust from thinking log $\mathcal{T} = [S_0, \dots, S^*]$.
 
@@ -188,7 +265,7 @@ $$\alpha = \sigma(\text{Linear}(V_{ctx})) \in [0, 1]$$
 
 * Target ($\hat{\alpha}$): Clean=1.0, Mismatch/Drunk=0.0
 
-### 4.3. Loss Function (Stage-wise)
+### 5.3. Loss Function (Stage-wise)
 
 Objective function switches per training stage.
 
@@ -206,9 +283,9 @@ Objective function switches per training stage.
 
 -----
 
-## 5. Data Structures
+## 6. Data Structures
 
-### 5.1. SantanaLog (Thinking Trajectory)
+### 6.1. SantanaLog
 
 Object that records state history during the convergence process.
 
@@ -224,7 +301,7 @@ class SantanaLog:
         """Number of recorded steps"""
 ```
 
-### 5.2. SystemOutput (Inference Output)
+### 6.2. SystemOutput
 
 ```python
 @dataclass
@@ -239,9 +316,13 @@ class SystemOutput:
 
 -----
 
-## 6. Algorithm Flow
+## 7. Algorithm Flow
 
-### 6.1. Inference Flow
+### 7.1. Inference Sequence Diagram
+
+![Inference Sequence Diagram](diagrams/images/v4_sequence_diagram_inference.png)
+
+### 7.2. Inference Flow
 
 ```python
 def inference(x: Tensor) -> SystemOutput:
@@ -257,7 +338,7 @@ def inference(x: Tensor) -> SystemOutput:
     return SystemOutput(output, s_star, v_ctx, trust_score, santana, severity)
 ```
 
-### 6.2. SamathaEngine Internal Flow
+### 7.3. SamathaEngine Internal Flow
 
 ```python
 def samatha_forward(x, noise_level=0.0, run_augmenter=True):
@@ -291,9 +372,9 @@ def samatha_forward(x, noise_level=0.0, run_augmenter=True):
 
 -----
 
-## 7. Training Curriculum (4-Stage)
+## 8. Training Curriculum (4-Stage)
 
-### 7.1. Training Policy
+### 8.1. Training Policy
 
 | Stage | Name | Trainable | Frozen | Objective |
 |:---|:---|:---|:---|:---|
@@ -302,7 +383,31 @@ def samatha_forward(x, noise_level=0.0, run_augmenter=True):
 | **2** | Vipassana Training | Vipassana | All others | BCE (Contrastive) |
 | **3** | Decoder Fine-tuning | TaskDecoder | All others | Task Specific Loss |
 
-### 7.2. Stage 2 Noise Generation Strategy
+### 8.2. Iteration Strategy
+
+| Mode | Description | Use Case |
+|:---|:---|:---|
+| **Fixed Steps** | Always run exactly $T$ iterations | Training (gradient stability) |
+| **Early Stopping** | Stop when $\|S_{t+1} - S_t\| < \epsilon$ | Inference (efficiency) |
+| **Hybrid** | Run minimum steps, then allow early stop | Balance stability and efficiency |
+
+**Recommended:**
+
+* **Training:** Fixed steps ($T = 10$) for stable gradient flow
+* **Inference:** Early stopping with $\epsilon = 10^{-4}$ for efficiency
+* **Transition:** Use `SatiConfig.mode` to switch between strategies
+
+### 8.3. Stage Transition Criteria
+
+| Transition | Criterion | Fallback |
+|:---|:---|:---|
+| 0 → 1 | Reconstruction loss plateaus | Fixed epochs (e.g., 5) |
+| 1 → 2 | Stability loss $< 10^{-3}$ | Fixed epochs (e.g., 10) |
+| 2 → 3 | Vipassana BCE $< 0.3$ | Fixed epochs (e.g., 5) |
+
+**Early Stopping:** Monitor validation loss per stage. If no improvement for `patience` epochs, transition to next stage.
+
+### 8.4. Stage 2 Noise Generation Strategy
 
 Three data generation strategies to teach Vipassana meta-cognition:
 
@@ -319,11 +424,20 @@ Three data generation strategies to teach Vipassana meta-cognition:
    * Shuffle S* and SantanaLog within batch
    * Target: `0.0`
 
+**Batch Composition (recommended):**
+
+| Path | Proportion | Purpose |
+|:---|:---|:---|
+| Clean | 25% | Baseline trust |
+| Augmented | 25% | Environmental uncertainty |
+| Drunk | 25% | Internal dysfunction detection |
+| Mismatch | 25% | Logical inconsistency detection |
+
 -----
 
-## 8. Hyperparameters
+## 9. Hyperparameters
 
-### Model Architecture
+### 9.1. Model Architecture
 
 | Key | Symbol | Recommended | Description |
 |:---|:---|:---|:---|
@@ -332,29 +446,14 @@ Three data generation strategies to teach Vipassana meta-cognition:
 | `num_probes` | $K$ | 8-32 | Number of Vitakka probes |
 | `max_steps` | $T$ | 6-20 | Maximum Vicara steps |
 
-### Training Strategy
+### 9.2. Training Strategy
 
 | Key | Symbol | Recommended | Description |
 |:---|:---|:---|:---|
 | `sati_threshold` | $\epsilon$ | 1e-4 | Convergence threshold |
 | `beta` | $\beta$ | 0.3-0.7 | State update inertia parameter |
 | `guidance_weight` | $\lambda_g$ | 0.1-0.5 | (Stage 1) Guidance loss strength |
-| `recon_weight` | $\lambda_r$ | 0.1-0.3 | Reconstruction loss strength |
-
------
-
-## 9. Core Dynamics: Divergence vs. Convergence
-
-The core dynamics of Satipatthana Framework is based on convergence, contrasting with the divergent approach of traditional generative models.
-
-| Feature | Divergent Models | **Convergent Models** |
-|:---|:---|:---|
-| **Basic Operation** | Sequence Prediction, Generation, Divergence | State Purification, Stabilization, Convergence |
-| **Time Dependency** | Dependent on Context History | Dependent only on Current State (Markovian) |
-| **Attention** | Self-Attention (Between Elements) | Recursive Attention (Between State-Probe) |
-| **Nature of Inference** | Open/Infinite | **Closed/Finite** |
-| **Explainability** | Limited | **Extremely High (SantanaLog)** |
-| **Philosophical Basis** | Association, Generation, Expansion | **Meditation (Samadhi), Insight, Essence Extraction** |
+| `recon_weight` | $\lambda_r$ | 0.1-0.3 | Reconstruction loss weight |
 
 -----
 
@@ -371,21 +470,11 @@ For supervised tasks, actively use **Stage 1 Guidance (AuxHead)** to optimize Sa
 
 -----
 
-## 11. Integration with Large Language Models (LLMs)
-
-This architecture functions as a countermeasure against LLM "Hallucination".
-
-1. **Thinking Phase:** Converge LLM Hidden States with Samatha to verify context consistency
-2. **Introspection Phase:** Vipassana detects "confident lies (Mismatch)"
-3. **Expression Phase:** If score is low, take safety measures (search trigger, answer refusal)
-
------
-
-## 12. Architectural Extensibility
+## 11. Architectural Extensibility
 
 Components can be freely combined using `SystemConfig` and various `ComponentConfig`.
 
-### 12.1. Task-Specific Customization Example
+### 11.1. Task-Specific Customization Example
 
 | Task | Adapter | Augmenter | Vicara | Decoder |
 |:---|:---|:---|:---|:---|
@@ -394,7 +483,7 @@ Components can be freely combined using `SystemConfig` and various `ComponentCon
 | **Dialogue Intent Estimation** | Transformer | Identity | ProbeSpecific | Conditional |
 | **Robot Control** | MLP | Gaussian | Weighted | Conditional |
 
-### 12.2. Config Example
+### 11.2. Config Example
 
 ```python
 from satipatthana.configs import SystemConfig, SamathaConfig, VipassanaEngineConfig

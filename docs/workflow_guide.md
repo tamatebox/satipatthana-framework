@@ -1,248 +1,304 @@
-# Samadhi Framework Workflow Guide (Cookbook)
+# Satipatthana Framework Workflow Guide (Cookbook)
 
-This guide provides a comprehensive step-by-step procedure for building, training, and evaluating models using the Samadhi Framework. It is designed to help developers and AI assistants navigate the codebase efficiently to implement new tasks.
+This guide provides a comprehensive step-by-step procedure for building, training, and evaluating models using the Satipatthana Framework. It is designed to help developers and AI assistants navigate the codebase efficiently to implement new tasks.
 
 ---
 
 ## 1. Overview & Directory Map
 
-The Samadhi Framework workflow is unique due to its cognitive architecture (Vitakka/Vicara) and typically requires a multi-stage training process.
+The Satipatthana Framework workflow is unique due to its three-engine cognitive architecture (SamathaEngine, VipassanaEngine, ConditionalDecoder) and requires a **4-stage curriculum training** process.
 
 ### Key Directories
+
 * **Configuration (`samadhi/configs/`)**: Defines model hyperparameters. Check here for required fields (e.g., `input_dim`, `seq_len`).
-* **Presets (`samadhi/presets/`)**: Factory functions to quickly instantiate standard models (LSTM, Transformer, MLP, CNN). **Start here.**
-* **Objectives (`samadhi/train/objectives/`)**: Defines the loss functions for different training phases (Autoencoder, Anomaly, Unsupervised).
-* **Trainer (`samadhi/train/hf_trainer.py`)**: The custom `SamadhiTrainer` wrapper.
+* **Core (`samadhi/core/`)**: Main system components (`SamadhiSystem`, `SamathaEngine`, `VipassanaEngine`).
+* **Components (`samadhi/components/`)**: Modular components (Adapters, Augmenters, Vitakka, Vicara, Sati, Vipassana, Decoders).
+* **Trainer (`samadhi/train/v4_trainer.py`)**: The `SamadhiV4Trainer` implementing 4-stage curriculum.
 
 ---
 
-## 2. Step-by-Step Workflow
+## 2. Architecture Overview
+
+### Three-Engine Structure
+
+```txt
+Raw Input (X)
+    ↓
+[SamathaEngine] — Convergent Thinking
+    Augmenter → Adapter → Vitakka → Vicara loop (w/ Sati) → S*, SantanaLog
+    ↓
+[VipassanaEngine] — Introspective Self-Awareness
+    S* + SantanaLog → V_ctx, α (trust_score)
+    ↓
+[ConditionalDecoder] — Humble Expression
+    S* + V_ctx → Output (Y)
+```
+
+### 4-Stage Curriculum
+
+| Stage | Name | Trainable | Objective |
+|:---|:---|:---|:---|
+| **0** | Adapter Pre-training | Adapter, AdapterReconHead | Reconstruction Loss |
+| **1** | Samatha Training | Adapter, Vitakka, Vicara, Sati, (SamathaReconHead, AuxHead) | Stability + Recon + (Guidance) |
+| **2** | Vipassana Training | Vipassana | BCE (Contrastive) |
+| **3** | Decoder Fine-tuning | ConditionalDecoder | Task Specific Loss |
+
+---
+
+## 3. Step-by-Step Workflow
 
 ### Step 1: Analyze Requirements & Data
 
 Before writing code, determine the **Data Type** and **Task Goal**.
 
-| Data Type | Task Goal | Recommended Model | Recommended Objective (Phase 2) |
-| :--- | :--- | :--- | :--- |
-| **Time Series** | Anomaly Detection | `create_lstm_samadhi` / `create_transformer_samadhi` | `AnomalyObjective` |
-| **Tabular** | Anomaly Detection | `create_mlp_samadhi` | `AnomalyObjective` / `UnsupervisedObjective` |
-| **Tabular** | Classification | `create_mlp_samadhi` | `SupervisedClassificationObjective` |
-| **Tabular** | Robust Regression | `create_mlp_samadhi` | `RobustRegressionObjective` |
-| **Image** | Reconstruction/Gen | `create_conv_samadhi` | `UnsupervisedObjective` / `CosineSimilarityObjective` |
+| Data Type | Task Goal | Recommended Adapter | Stage 1 Strategy | Stage 3 Decoder |
+| :--- | :--- | :--- | :--- | :--- |
+| **Time Series** | Anomaly Detection | LSTM / Transformer | Reconstruction Only | Identity |
+| **Tabular** | Anomaly Detection | MLP | Reconstruction Only | Identity |
+| **Tabular** | Classification | MLP | Guidance (CE Loss) | Conditional (Softmax) |
+| **Tabular** | Regression | MLP | Guidance (MSE Loss) | Conditional (Linear) |
+| **Image** | Classification | CNN | Guidance (CE Loss) | Conditional (Softmax) |
 
 ### Step 2: Configuration Strategy
 
-You must construct a `SamadhiConfig` object. The recommended approach is to define a dictionary (`config_dict`) and use `SamadhiConfig.from_dict()`.
+Construct a `SystemConfig` object using factory functions.
 
-**Critical:** Certain parameters are **mandatory** and have no defaults. You *must* verify these in `samadhi/configs/*.py`.
+**Critical:** Certain parameters are **mandatory** and have no defaults. Verify these in `samadhi/configs/*.py`.
 
 * **Adapters (`samadhi/configs/adapters.py`)**:
-    * `MlpAdapterConfig`: Requires `input_dim`.
-    * `LstmAdapterConfig`: Requires `input_dim`, `seq_len`.
-    * `CnnAdapterConfig`: Requires `img_size`, `channels`.
+  * `MlpAdapterConfig`: Requires `input_dim`.
+  * `LstmAdapterConfig`: Requires `input_dim`, `seq_len`.
+  * `CnnAdapterConfig`: Requires `img_size`, `channels`.
+  * `TransformerAdapterConfig`: Requires `input_dim`, `seq_len`.
 * **Decoders (`samadhi/configs/decoders.py`)**:
-    * `ReconstructionDecoderConfig`: Requires `input_dim` (target dim).
-    * `LstmDecoderConfig`: Requires `output_dim` (target dim), `seq_len`.
+  * `ReconstructionDecoderConfig`: Requires `input_dim`.
+  * `ConditionalDecoderConfig`: Requires `dim`, `context_dim`, `output_dim`.
+* **Vipassana (`samadhi/configs/vipassana.py`)**:
+  * `StandardVipassanaConfig`: Requires `context_dim`.
 
-**Example Config Dictionary:**
+**Example Config (MLP for Classification):**
+
 ```python
-config_dict = {
-    "dim": 32, # Latent dimension
-    # Explicitly specify Component Configs
-    "adapter": {
-        "type": "lstm",     # Must match factory expectation
-        "input_dim": 10,    # Mandatory
-        "seq_len": 50,      # Mandatory for Time Series
-        "hidden_dim": 64
-    },
-    "decoder": {
-        "type": "lstm",
-        "output_dim": 10,   # Mandatory (Match input_dim)
-        "seq_len": 50,      # Mandatory
-    },
-    "vitakka": {"n_probes": 10},
-    "vicara": {"refine_steps": 5},
-    # Note: Objective config will be overwritten per phase
-    "objective": {}
-}
-config = SamadhiConfig.from_dict(config_dict)
-````
+from samadhi.configs import SystemConfig, SamathaConfig, VipassanaEngineConfig
+from samadhi.configs import create_adapter_config, create_vicara_config
+from samadhi.configs import AugmenterConfig, VitakkaConfig, SatiConfig
+from samadhi.configs import StandardVipassanaConfig
+from samadhi.configs.enums import AugmenterType, SatiType
+
+config = SystemConfig(
+    samatha=SamathaConfig(
+        latent_dim=64,
+        adapter=create_adapter_config("mlp", input_dim=784, latent_dim=64),
+        augmenter=AugmenterConfig(type=AugmenterType.GAUSSIAN, max_noise_std=0.3),
+        vitakka=VitakkaConfig(num_probes=16, temperature=0.2),
+        vicara=create_vicara_config("standard", latent_dim=64),
+        sati=SatiConfig(type=SatiType.THRESHOLD, threshold=1e-4),
+        max_steps=10,
+    ),
+    vipassana=VipassanaEngineConfig(
+        vipassana=StandardVipassanaConfig(context_dim=32, latent_dim=64),
+    ),
+    use_label_guidance=True,  # Enable Stage 1 Guidance
+    seed=42,
+)
+```
+
+**Example Config (LSTM for Time Series Anomaly Detection):**
+
+```python
+config = SystemConfig(
+    samatha=SamathaConfig(
+        latent_dim=128,
+        adapter=create_adapter_config(
+            "lstm",
+            input_dim=10,
+            seq_len=50,
+            latent_dim=128,
+            hidden_dim=256,
+        ),
+        augmenter=AugmenterConfig(type=AugmenterType.GAUSSIAN, max_noise_std=0.2),
+        vitakka=VitakkaConfig(num_probes=8),
+        vicara=create_vicara_config("standard", latent_dim=128),
+        sati=SatiConfig(type=SatiType.THRESHOLD, threshold=1e-4),
+    ),
+    vipassana=VipassanaEngineConfig(
+        vipassana=StandardVipassanaConfig(context_dim=64, latent_dim=128),
+    ),
+    use_label_guidance=False,  # Unsupervised
+)
+```
 
 ### Step 3: Data Preparation
 
 Create a custom `torch.utils.data.Dataset`.
-The `__getitem__` method **must** return a dictionary compatible with `SamadhiEngine.forward`:
+The `__getitem__` method **must** return a dictionary compatible with `SamadhiSystem.forward`:
 
 ```python
 class MyDataset(Dataset):
     def __getitem__(self, idx):
         return {
-            "x": self.data[idx],      # Required: Passed to model(x)
-            "y": self.labels[idx]     # Optional: Passed to Objective (0=Normal, 1=Anomaly)
+            "x": self.data[idx],      # Required: input tensor
+            "y": self.labels[idx]     # Optional: labels (for Stage 1 guidance, Stage 3)
         }
 ```
 
 ### Step 4: Model Instantiation
 
-You can instantiate the model using either a **Preset Factory** (simple, standard) or the **SamadhiBuilder** (flexible, custom).
-
-**Option A: Using Preset Factories (Recommended for Beginners)**
-Handles connecting standard components (Adapter, Vitakka, Vicara, Decoder).
+Instantiate `SamadhiSystem` with your config:
 
 ```python
-from samadhi.presets.sequence import create_lstm_samadhi
-model = create_lstm_samadhi(config)
+from samadhi.core.system import SamadhiSystem
+
+system = SamadhiSystem(config)
 ```
 
-**Option B: Using SamadhiBuilder (Advanced)**
-Allows detailed customization and component-by-component construction.
+### Step 5: 4-Stage Curriculum Training
+
+Use `SamadhiV4Trainer` to run the full curriculum:
 
 ```python
-from samadhi.core.builder import SamadhiBuilder
+from samadhi.train import SamadhiV4Trainer
+from transformers import TrainingArguments
 
-# 1. Initialize Builder
-builder = SamadhiBuilder(config)
-
-# 2. Set Components (Chainable)
-# If arguments are omitted, types are inferred from the config object.
-builder.set_adapter() \
-       .set_vitakka() \
-       .set_vicara() \
-       .set_decoder()
-
-# 3. Build Final Model
-model = builder.build()
-```
-
-### Step 5: Phase 1 - Pre-training (Dynamics Learning)
-
-**Goal:** Initialize the latent space structure and learn "Core Concepts" (Attractors).
-In this phase, we want to **force strong convergence** to establish the physics of the latent space.
-
-  * **Strategy:** High Stability + High Entropy Penalty.
-  * **Trainer:** `SamadhiTrainer` using `AutoencoderObjective` (or `UnsupervisedObjective`).
-
-**Implementation (Independent Config):**
-Create a dedicated config for Phase 1. Do not reuse the Phase 2 settings here.
-
-```python
-from samadhi.train.objectives.autoencoder import AutoencoderObjective
-from samadhi.configs.objectives import ObjectiveConfig
-import copy
-
-# 1. Create Independent Config for Phase 1
-# We use deepcopy to ensure we don't mess up the base config
-phase1_config = copy.deepcopy(config)
-
-# 2. Inject "Force Convergence" Objective Settings
-phase1_config.objective = ObjectiveConfig(
-    stability_coeff=0.2,      # HIGH: Force strong attraction to S_0
-    entropy_coeff=0.5,        # HIGH: Force clear, single-topic selection
-    balance_coeff=0.0001,     # LOW: Structure discovery > Load balancing
-    anomaly_margin=5.0
+# Training arguments
+args = TrainingArguments(
+    output_dir="./output",
+    num_train_epochs=10,
+    per_device_train_batch_size=32,
+    learning_rate=1e-3,
 )
 
-# 3. Instantiate Objective & Train
-# AutoencoderObjective typically skips Vicara loop but respects stability loss if enabled
-ae_objective = AutoencoderObjective(phase1_config)
-
-trainer_p1 = SamadhiTrainer(model=model, objective=ae_objective, train_dataset=normal_data, ...)
-trainer_p1.train()
-```
-
-### Step 6: Probe Initialization (Interim Step)
-
-**Goal:** Initialize Vitakka's probes to meaningful locations in the latent space. This is highly recommended for faster convergence, as it gives the model good starting "concepts."
-
-  * **Methods:**
-      * **K-Means (Recommended):** Cluster latent vectors produced by the pre-trained Adapter.
-      * **Average:** Use class averages if labels are available.
-
-
-```python
-# 1. Get Latents (use model in eval mode)
-model.eval()
-z_latents = []
-for batch in DataLoader(normal_data, batch_size=32):
-    # Just use the adapter to get raw embeddings
-    z = model.vitakka.adapter(batch["x"].to(device))
-    z_latents.append(z.detach().cpu().numpy())
-z_latents = np.concatenate(z_latents, axis=0)
-
-# 2. KMeans
-from sklearn.cluster import KMeans
-kmeans = KMeans(n_clusters=model.config.vitakka.n_probes)
-kmeans.fit(z_latents)
-
-# 3. Update Probes
-model.vitakka.probes.data = torch.tensor(kmeans.cluster_centers_, dtype=torch.float32).to(device)
-print("Probes initialized.")
-```
-
-### Step 7: Phase 2 - Main Training (Purification & Task)
-
-**Goal:** Train the full cognitive loop (Vitakka search + Vicara refinement) for the specific task (Anomaly Detection, Classification).
-In this phase, we **relax the constraints** to allow fine-tuning and flexibility.
-
-  * **Strategy:** Low Stability (allow subtle shifts) + High Balance (prevent collapse).
-  * **Objective:** `AnomalyObjective` or `SupervisedRegressionObjective` or `SupervisedClassificationObjective` or `RobustRegressionObjective` or `CosineSimilarityObjective`.
-
-**Implementation (Independent Config):**
-Create a NEW config for Phase 2.
-
-```python
-from samadhi.train.objectives.anomaly import AnomalyObjective
-
-# 1. Create Independent Config for Phase 2
-phase2_config = copy.deepcopy(config)
-
-# 2. Inject "Flexible Fine-tuning" Objective Settings
-phase2_config.objective = ObjectiveConfig(
-    stability_coeff=0.01,     # LOW: Allow gentle updates, don't break the learned physics
-    entropy_coeff=0.1,        # LOW: Allow flexible/mixed probe usage if needed
-    balance_coeff=0.01,       # HIGH: Ensure all probes are utilized (prevent collapse)
-    anomaly_margin=2.0,       # Task specific
-    anomaly_weight=1.0
+# Initialize Trainer
+trainer = SamadhiV4Trainer(
+    model=system,
+    args=args,
+    train_dataset=dataset,
 )
 
-# 3. Instantiate Objective & Train
-# This objective enables the full Vicara loop
-main_objective = AnomalyObjective(phase2_config)
-
-trainer_p2 = SamadhiTrainer(model=model, objective=main_objective, train_dataset=full_data, ...)
-trainer_p2.train()
+# Run full 4-stage curriculum
+results = trainer.run_curriculum(
+    stage0_epochs=5,   # Adapter pre-training
+    stage1_epochs=10,  # Samatha training (convergence)
+    stage2_epochs=5,   # Vipassana training (meta-cognition)
+    stage3_epochs=5,   # Decoder fine-tuning
+)
 ```
 
-### Step 8: Evaluation & Inference
+### Stage-by-Stage Details
 
-**Goal:** Detect anomalies based on reconstruction error and cognitive stability.
+#### Stage 0: Adapter Pre-training
 
-  * **Inference:** You must explicitly enable the cognitive loop.
-    ```python
-    # Returns: output, s_final, metadata
-    # Ensure to handle the case where gate is closed (returns None if handled in wrapper)
-    recon, s_final, meta = model(x, run_vitakka=True, run_vicara=True)
-    ```
-  * **Metrics:**
-    1.  **Reconstruction Error:** `MSE(x, recon)`. High = Anomaly.
-    2.  **Confidence:** `meta['confidence']`. Low = Anomaly (Gate closed).
-    3.  **Stability:** `meta['s_history']` (Movement of $S_t$). Large movement = Anomaly.
+**Goal:** Learn basic input encoding.
 
------
+* **Trainable:** Adapter, AdapterReconHead
+* **Objective:** $\mathcal{L}_0 = \mathcal{L}_{recon}(X, \hat{X}_{adapter})$
+* **Note:** Vitakka/Vicara are bypassed. Only Adapter + Reconstruction Head are trained.
 
-## Common Pitfalls & Troubleshooting
+#### Stage 1: Samatha Training
 
-1.  **Dimension Mismatch (`RuntimeError: size a matches size b`):**
+**Goal:** Learn convergent dynamics and stable attractors.
 
-      * **Cause:** `input_dim` or `seq_len` mismatch between Data, Adapter, and Decoder.
-      * **Fix:** Ensure `config.adapter.seq_len` AND `config.decoder.seq_len` match your data.
+* **Trainable:** Adapter, Vitakka, Vicara, Sati, SamathaReconHead, (AuxHead if guidance enabled)
+* **Objective:** $\mathcal{L}_1 = ||S_T - S_{T-1}||^2 + \lambda_r \mathcal{L}_{recon} + \lambda_g \mathcal{L}_{task}$
+* **Key:** AuxHead provides task guidance but is **discarded after Stage 1** (not transferred to Stage 3).
 
-2.  **AttributeError: 'MlpAdapterConfig' object has no attribute...**
+#### Stage 2: Vipassana Training
 
-      * **Cause:** You forgot to specify `"type": "..."` in the config dictionary.
-      * **Fix:** Explicitly set `"type": "lstm"` (or "cnn", "transformer") in the config dict.
+**Goal:** Train meta-cognition to recognize "good" vs "bad" thinking.
 
-3.  **Loss is NaN:**
+* **Trainable:** Vipassana (LogEncoder + ConfidenceMonitor)
+* **Objective:** $\mathcal{L}_2 = \text{BCE}(\alpha, \hat{\alpha})$
+* **Data Generation:** Three strategies are used:
+    1. **Augmented Path:** Add noise to input → Target: `1.0 - severity`
+    2. **Drunk Path:** Perturb SamathaEngine internals → Target: `0.0`
+    3. **Mismatch Path:** Shuffle S\* and SantanaLog → Target: `0.0`
 
-      * **Cause:** Exploding gradients in the recursive Vicara loop.
-      * **Fix:** Reduce `refine_steps`, or **increase `stability_coeff`** during Phase 1 to force tighter bounds before moving to Phase 2.
+#### Stage 3: Decoder Fine-tuning
+
+**Goal:** Train ConditionalDecoder for final task output.
+
+* **Trainable:** ConditionalDecoder only
+* **Objective:** $\mathcal{L}_3 = \mathcal{L}_{task}(y, \text{Decoder}(S^*, V_{ctx}))$
+* **Note:** ConditionalDecoder input is `S* ⊕ V_ctx` (dim = d + c), different from Stage 1 AuxHead (dim = d).
+
+### Step 6: Evaluation & Inference
+
+**Goal:** Run three-phase inference with trust score.
+
+```python
+# Three-phase inference
+system.eval()
+result = system(x)
+
+# Access outputs
+output = result.output           # Decoded result
+s_star = result.s_star           # Converged latent state
+v_ctx = result.v_ctx             # Vipassana context vector
+trust_score = result.trust_score # Confidence (0.0-1.0)
+santana = result.santana         # Thinking trajectory (SantanaLog)
+```
+
+**Using Trust Scores:**
+
+```python
+if result.trust_score > 0.8:
+    # High confidence - use output directly
+    prediction = result.output
+else:
+    # Low confidence - take safety measures
+    print("Warning: Low confidence prediction")
+    # Options: trigger fallback, widen output variance, abstain
+```
+
+**Anomaly Detection (Unsupervised):**
+
+For unsupervised anomaly detection, the trust score (`α`) from Vipassana serves as the anomaly score:
+
+```python
+# Low trust = anomaly
+anomaly_score = 1.0 - result.trust_score
+is_anomaly = anomaly_score > threshold
+```
+
+---
+
+## 4. Common Pitfalls & Troubleshooting
+
+1. **Dimension Mismatch (`RuntimeError: size a matches size b`):**
+
+    * **Cause:** `input_dim` or `seq_len` mismatch between Data, Adapter, and Decoder.
+    * **Fix:** Ensure `config.samatha.adapter.seq_len` matches your data dimensions.
+
+2. **AttributeError: 'MlpAdapterConfig' object has no attribute...**
+
+    * **Cause:** Wrong adapter type specified.
+    * **Fix:** Use `create_adapter_config("mlp", ...)` factory function.
+
+3. **Loss is NaN:**
+
+    * **Cause:** Exploding gradients in the recursive Vicara loop.
+    * **Fix:** Reduce `max_steps`, increase `beta` (inertia), or extend Stage 0 training.
+
+4. **Stage 3 Decoder Dimension Error:**
+
+    * **Cause:** ConditionalDecoder expects `dim + context_dim` input.
+    * **Fix:** Ensure `ConditionalDecoderConfig.dim` matches `latent_dim` and `context_dim` matches Vipassana's `context_dim`.
+
+5. **Low Trust Scores on All Inputs:**
+
+    * **Cause:** Stage 2 training insufficient or data imbalance.
+    * **Fix:** Extend Stage 2 epochs, ensure balanced Augmented/Drunk/Mismatch data generation.
+
+---
+
+## 5. Quick Reference: Config Mandatory Fields
+
+| Config Class | Mandatory Fields |
+|:---|:---|
+| `MlpAdapterConfig` | `input_dim` |
+| `LstmAdapterConfig` | `input_dim`, `seq_len` |
+| `CnnAdapterConfig` | `img_size`, `channels` |
+| `TransformerAdapterConfig` | `input_dim`, `seq_len` |
+| `ReconstructionDecoderConfig` | `input_dim` |
+| `ConditionalDecoderConfig` | `dim`, `context_dim`, `output_dim` |
+| `StandardVipassanaConfig` | `context_dim` |

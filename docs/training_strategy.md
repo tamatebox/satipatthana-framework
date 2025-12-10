@@ -1,90 +1,240 @@
-# Samadhi Training Strategy Guide
+# Satipatthana Training Strategy Guide
 
-This document outlines flexible training strategies for the **Samadhi Framework**. By leveraging its modular architecture, you can train components (Adapter, Decoder, Refiner) individually or in combinations to achieve stable convergence and high performance.
-
------
-
-## 🎯 Modular Training Patterns
-
-Since Samadhi consists of distinct modules, you don't always have to train everything End-to-End from scratch. Step-by-step pre-training often yields better stability.
-
-| Pattern | Components Trained | Objective | Typical Use Case |
-| :--- | :--- | :--- | :--- |
-| **1. Adapter Only** | `Adapter` | Stability / Contrastive | Initializing latent space without labels. |
-| **2. Decoder Only** | `Decoder` | Task Loss (CE/MSE) | When latent space is already fixed/rich (e.g., using pre-trained BERT embeddings). |
-| **3. Autoencoder** | `Adapter` + `Decoder` | Reconstruction | Learning feature representation before introducing complex dynamics. |
-| **4. Dynamics Only** | `Adapter` + `Refiner` | Stability ($ \|S_{t+1} - S_t\| $) | Learning internal convergence rules (grammar of thought) without specific output targets. |
-| **5. Readout** | `Decoder` + `Refiner` | Task Loss | Fine-tuning output mapping from a converged state. |
-| **6. Full System** | **All** | **Total Samadhi Loss** | Final optimization. Orchestrates search, purification, and expression. |
+This document outlines the **4-Stage Curriculum Training** strategy for the **Satipatthana Framework**. The framework uses a progressive training approach that builds stable convergence, meta-cognition, and task-specific decoding in sequence.
 
 -----
 
-## 🚀 Case Studies: Recommended Roadmaps
+## 🎯 4-Stage Curriculum Overview
 
-### Case 1: Anomaly Detection (Unsupervised / Semi-supervised)
-**Goal:** Detect outliers by checking if they fail to converge or reconstruct poorly.
+Satipatthana's three-engine architecture (SamathaEngine, VipassanaEngine, ConditionalDecoder) is trained progressively to ensure stable learning.
 
-1.  **Phase 1: Autoencoder Pre-training (Pattern 3)**
-    *   **Train:** `Adapter` + `Decoder`
-    *   **Data:** Normal data only.
-    *   **Loss:** Reconstruction Loss.
-    *   **Why:** Ensure the model can map input $\to$ latent $\to$ input. Establish a baseline capability.
+![Training Overview](diagrams/images/v4_sequence_diagram_training_overview.png)
 
-2.  **Phase 2: Full Samadhi Training (Pattern 6)**
-    *   **Train:** All (Vitakka/Vicāra active).
-    *   **Data:** Normal data only.
-    *   **Loss:** Reconstruction + Stability + Entropy.
-    *   **Why:** Learn to *purify* noisy normal data into a clean state. Anomalies will resist this purification, resulting in high loss/instability.
-
-### Case 2: Classification with Limited Labels (Few-Shot / Transfer)
-**Goal:** High accuracy classification using a small labeled dataset.
-
-1.  **Phase 1: Unsupervised Dynamics Learning (Pattern 4)**
-    *   **Train:** `Adapter` + `Refiner` (Decoder detached).
-    *   **Data:** Large amount of unlabeled data.
-    *   **Loss:** Stability + Sparsity.
-    *   **Why:** Learn the inherent structure (manifold) of the data domain. Create strong attractors for common patterns.
-
-2.  **Phase 2: Supervised Fine-tuning (Pattern 2 or 6)**
-    *   **Train:** `Decoder` (and optionally fine-tune others).
-    *   **Data:** Small labeled dataset.
-    *   **Loss:** CrossEntropy Loss.
-    *   **Why:** Map the already-stable latent states to class labels. Since the internal structure is robust, it requires fewer samples to learn the boundary.
-
-### Case 3: Complex Reasoning / De-noising
-**Goal:** Extract clean intent/signal from highly noisy or ambiguous input.
-
-1.  **Phase 1: Adapter Pre-training (Pattern 1)**
-    *   **Train:** `Adapter`
-    *   **Loss:** Contrastive Loss (SimCLR style).
-    *   **Why:** Ensure similar inputs map to nearby points in the Samadhi Space.
-
-2.  **Phase 2: Dynamics & Reconstruction (Pattern 6)**
-    *   **Train:** Full System.
-    *   **Loss:** Task Loss + Strong Stability Penalty.
-    *   **Why:** Enforce the model to find a *stable* interpretation even for noisy inputs.
+| Stage | Name | Trainable Components | Frozen Components | Objective |
+| :--- | :--- | :--- | :--- | :--- |
+| **0** | Adapter Pre-training | Adapter, AdapterReconHead | All others | Reconstruction Loss |
+| **1** | Samatha Training | Adapter, Vitakka, Vicara, Sati, SamathaReconHead, (AuxHead) | Vipassana, ConditionalDecoder | Stability + Recon + (Guidance) |
+| **2** | Vipassana Training | Vipassana | All others | BCE (Contrastive) |
+| **3** | Decoder Fine-tuning | ConditionalDecoder | All others | Task Specific Loss |
 
 -----
 
-## 📝 Implementation Note (Objective-Driven)
+## 📋 Stage Details
 
-In the new framework architecture, these phases are managed by switching the **`Objective`** component injected into the Trainer.
+### Stage 0: Adapter Pre-training
+
+![Stage 0](diagrams/images/v4_sequence_diagram_training_stage0.png)
+
+**Goal:** Learn basic input encoding to latent space.
+
+* **Trainable:** Adapter, AdapterReconHead
+* **Objective:** $\mathcal{L}_0 = \mathcal{L}_{recon}(X, \hat{X}_{adapter})$
+* **Data:** All available data (labels not required)
+* **Notes:**
+  * Vitakka/Vicara loop is bypassed
+  * Only Adapter → ReconHead path is active
+  * Establishes initial latent space structure
+
+### Stage 1: Samatha Training
+
+![Stage 1](diagrams/images/v4_sequence_diagram_training_stage1.png)
+
+**Goal:** Learn convergent dynamics, stable attractors, and task-aligned representation.
+
+* **Trainable:** Adapter, Vitakka, Vicara, Sati, SamathaReconHead, (AuxHead if `use_label_guidance=True`)
+* **Objective:**
+$$\mathcal{L}_1 = ||S_T - S_{T-1}||^2 + \lambda_r \mathcal{L}_{recon}(X, \hat{X}_{samatha}) + \lambda_g \mathcal{L}_{task}(y, \text{AuxHead}(S^*))$$
+
+* **Loss Components:**
+  * **Stability Loss:** Forces convergence ($ ||S_T - S_{T-1}||^2 $)
+  * **Reconstruction Loss:** Preserves input information
+  * **Guidance Loss (optional):** Aligns $S^*$ with task labels via AuxHead
+
+* **AuxHead vs ConditionalDecoder:**
+
+| Module | Input Dimension | Purpose | After Stage 1 |
+|:---|:---|:---|:---|
+| `AuxHead` | $d$ (S\* only) | Guidance learning | **Discarded** |
+| `ConditionalDecoder` | $d + c$ (S\* ⊕ V_ctx) | Final inference | Trained in Stage 3 |
+
+**Important:** AuxHead weights are NOT transferred to Stage 3. ConditionalDecoder is trained from scratch.
+
+### Stage 2: Vipassana Training
+
+![Stage 2](diagrams/images/v4_sequence_diagram_training_stage2.png)
+
+**Goal:** Train meta-cognition to recognize "good" vs "bad" thinking processes.
+
+* **Trainable:** Vipassana (LogEncoder + ConfidenceMonitor)
+* **Objective:** $\mathcal{L}_2 = \text{BCE}(\alpha, \hat{\alpha})$
+
+#### Noise Generation Strategies
+
+Three data generation strategies teach Vipassana to detect anomalous thinking:
+
+| Strategy | Description | Target α |
+|:---|:---|:---|
+| **Augmented Path** | Add noise to input data | `1.0 - severity` |
+| **Drunk Path** | Perturb SamathaEngine internals | `0.0` |
+| **Mismatch Path** | Shuffle S\* and SantanaLog within batch | `0.0` |
+
+**Drunk Path Implementations:**
+
+* Increase Dropout rate in Vicara Refiner
+* Add temporary noise to Refiner weights
+* Disturb Vitakka's temperature parameter
+
+![Noise Generation](diagrams/images/v4_sequence_diagram_noise_generation.png)
+
+### Stage 3: Decoder Fine-tuning
+
+![Stage 3](diagrams/images/v4_sequence_diagram_training_stage3.png)
+
+**Goal:** Train ConditionalDecoder for final task output.
+
+* **Trainable:** ConditionalDecoder only
+* **Objective:** $\mathcal{L}_3 = \mathcal{L}_{task}(y, \text{Decoder}(S^*, V_{ctx}))$
+* **Input:** Concatenation of S\* and V_ctx (dimension: $d + c$)
+
+-----
+
+## 🚀 Task-Specific Training Roadmaps
+
+### Case 1: Anomaly Detection (Unsupervised)
+
+**Goal:** Detect outliers using trust score (α) from Vipassana.
+
+| Stage | Configuration | Notes |
+|:---|:---|:---|
+| 0 | Standard | - |
+| 1 | `use_label_guidance=False`, Reconstruction only | Learn normal patterns |
+| 2 | All three noise strategies | Train trust score |
+| 3 | Skip or Identity Decoder | α is the final output |
+
+**Inference:** `anomaly_score = 1.0 - trust_score`
+
+### Case 2: Supervised Classification
+
+**Goal:** High accuracy classification with explainable confidence.
+
+| Stage | Configuration | Notes |
+|:---|:---|:---|
+| 0 | Standard | - |
+| 1 | `use_label_guidance=True`, CE Loss for AuxHead | Align latent space with classes |
+| 2 | Standard | Train confidence estimation |
+| 3 | ConditionalDecoder with Softmax output | Task-specific head |
+
+**Inference:** Use trust score to filter low-confidence predictions.
+
+### Case 3: Time Series Forecasting
+
+**Goal:** Predict future values with uncertainty estimation.
+
+| Stage | Configuration | Notes |
+|:---|:---|:---|
+| 0 | LSTM/Transformer Adapter | Encode temporal patterns |
+| 1 | MSE reconstruction, optional guidance | Learn sequence dynamics |
+| 2 | Standard | Train prediction confidence |
+| 3 | ConditionalDecoder with linear output | Regression head |
+
+**Inference:** When trust score < threshold, widen prediction intervals.
+
+### Case 4: LLM Hallucination Detection
+
+**Goal:** Detect "confident lies" in language model outputs.
+
+| Stage | Configuration | Notes |
+|:---|:---|:---|
+| 0 | Transformer Adapter on LLM hidden states | - |
+| 1 | Stability-focused, no guidance | Learn context consistency |
+| 2 | **Critical stage** - strong Mismatch training | Detect logical inconsistency |
+| 3 | Skip (Vipassana output is the result) | α indicates hallucination risk |
+
+-----
+
+## 📝 Implementation with SamadhiV4Trainer
 
 ```python
-# Example: Phase 1 (Autoencoder)
-trainer = SamadhiTrainer(
-    model, 
-    optimizer, 
-    objective=ReconstructionObjective() # Only calculates Recon Loss
-)
-trainer.train(loader)
+from samadhi.train import SamadhiV4Trainer
+from samadhi.core.system import SamadhiSystem
+from transformers import TrainingArguments
 
-# Example: Phase 2 (Full System)
-trainer = SamadhiTrainer(
-    model, 
-    optimizer, 
-    objective=AnomalyObjective() # Recon + Stability + Margin
+# Build system
+system = SamadhiSystem(config)
+
+# Training arguments
+args = TrainingArguments(
+    output_dir="./output",
+    num_train_epochs=10,
+    per_device_train_batch_size=32,
 )
-trainer.train(loader)
+
+# Initialize trainer
+trainer = SamadhiV4Trainer(
+    model=system,
+    args=args,
+    train_dataset=dataset,
+)
+
+# Run full curriculum
+results = trainer.run_curriculum(
+    stage0_epochs=5,   # Adapter pre-training
+    stage1_epochs=10,  # Samatha training
+    stage2_epochs=5,   # Vipassana training
+    stage3_epochs=5,   # Decoder fine-tuning
+)
+
+# Or run individual stages
+trainer.run_stage(stage=1, epochs=10)
 ```
 
+-----
+
+## ⚙️ Hyperparameter Guidelines
+
+### Stage 1 Coefficients
+
+| Parameter | Recommended | Purpose |
+|:---|:---|:---|
+| `stability_coeff` | 0.1 - 0.5 | Higher = stronger convergence force |
+| `recon_coeff` | 0.1 - 0.3 | Higher = better input preservation |
+| `guidance_coeff` | 0.1 - 0.5 | Higher = stronger task alignment |
+
+### Stage 2 Data Balance
+
+| Data Type | Recommended Ratio |
+|:---|:---|
+| Clean (no noise) | 30% |
+| Augmented (varying severity) | 40% |
+| Drunk Path | 15% |
+| Mismatch Path | 15% |
+
+### General Tips
+
+1. **Stage 0 duration:** Ensure reconstruction loss converges before moving to Stage 1
+2. **Stage 1 stability:** If NaN loss occurs, increase `stability_coeff` or reduce `max_steps`
+3. **Stage 2 balance:** Ensure sufficient Drunk/Mismatch examples to prevent Vipassana from always outputting high α
+4. **Stage 3 learning rate:** Use lower LR (e.g., 1e-4) as Samatha/Vipassana are frozen
+
+-----
+
+## 🔄 Checkpoint Strategy
+
+Save checkpoints after each stage for flexibility:
+
+```python
+# After Stage 1
+trainer.save_model("./checkpoints/stage1")
+
+# After Stage 2
+trainer.save_model("./checkpoints/stage2")
+
+# Final model
+trainer.save_model("./checkpoints/final")
+```
+
+This allows:
+
+* Retraining Stage 2/3 with different strategies
+* A/B testing different Decoder configurations
+* Debugging stage-specific issues
