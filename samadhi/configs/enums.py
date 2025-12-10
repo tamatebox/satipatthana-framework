@@ -20,4 +20,20 @@ class DecoderType(str, Enum):
     CNN = "cnn"
     LSTM = "lstm"
     SIMPLE_SEQUENCE = "simple_sequence"
-    # CLASSIFICATION = "classification"
+    CONDITIONAL = "conditional"
+    SIMPLE_AUX_HEAD = "simple_aux_head"
+
+
+class AugmenterType(str, Enum):
+    IDENTITY = "identity"
+    GAUSSIAN_NOISE = "gaussian_noise"
+
+
+class SatiType(str, Enum):
+    FIXED_STEP = "fixed_step"
+    THRESHOLD = "threshold"
+
+
+class VipassanaType(str, Enum):
+    STANDARD = "standard"
+    LSTM = "lstm"

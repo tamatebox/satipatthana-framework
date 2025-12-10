@@ -173,35 +173,71 @@ v3.1の構造をベースに、8コンポーネント制への移行、Engineと
 
 エンジニアチームは以下の詳細な4フェーズ計画に従って実装を進めてください。各フェーズには検証用のテスト項目が含まれており、これをパスすることを完了条件とします。
 
-### Phase 1: 基盤整備 (Foundation)
+### Phase 1: 基盤整備 (Foundation) - COMPLETED
+
+**Status**: **COMPLETED** (2024-12-10)
 
 **Goal**: v4アーキテクチャの骨格を作成し、Configシステムを刷新する。
 
-1. **ディレクトリ構造の作成**:
+1. **ディレクトリ構造の作成**: DONE
 
     * `samadhi/components/augmenters/`, `sati/`, `vipassana/` の新規作成。
 
     * `samadhi/core/system.py`, `engines.py`, `santana.py` の新規作成。
 
-2. **Baseクラス定義**:
+2. **Baseクラス定義**: DONE
 
     * `BaseAugmenter`, `BaseSati`, `BaseVipassana` を定義 (`torch.nn.Module` ベース)。
 
     * 各クラスの抽象メソッド (`forward` 等) のシグネチャを確定。
 
-3. **Configシステムの刷新**:
+3. **Configシステムの刷新**: DONE
 
     * `SamadhiConfig` を `SystemConfig` へと再構成。
 
     * `SystemConfig` に `use_label_guidance: bool` フラグを追加。
 
-    * `samadhi/configs/` 下に `augmenter.py`, `sati.py`, `system.py`, `auxiliary_head.py` 等を追加し、階層構造を定義。
+    * `samadhi/configs/` 下に `augmenter.py`, `sati.py`, `vipassana.py`, `system.py` 等を追加し、階層構造を定義。
 
-    * 旧フォーマット（フラットな辞書）からの互換性維持ロジック (`from_dict`) の実装。
+    * `samadhi/configs/enums.py` に `AugmenterType`, `SatiType`, `VipassanaType` を追加。
 
-**Phase 1 Tests**:
+**Phase 1 Tests**: PASSED (52 tests)
 
 * **Config Test**: ネストされた辞書からConfigオブジェクトが正しく生成されるか。不正な値で初期化エラーになるか。
+
+#### Phase 1 実装詳細
+
+**作成されたファイル:**
+
+| ファイル | 説明 |
+|---------|------|
+| `samadhi/core/santana.py` | `SantanaLog` クラス - 軌跡ログ |
+| `samadhi/core/engines.py` | Engine プレースホルダー (Phase 3 で実装) |
+| `samadhi/core/system.py` | System プレースホルダー (Phase 4 で実装) |
+| `samadhi/components/augmenters/base.py` | `BaseAugmenter` 抽象クラス |
+| `samadhi/components/sati/base.py` | `BaseSati` 抽象クラス |
+| `samadhi/components/vipassana/base.py` | `BaseVipassana` 抽象クラス |
+| `samadhi/configs/augmenter.py` | Augmenter 設定 |
+| `samadhi/configs/sati.py` | Sati 設定 |
+| `samadhi/configs/vipassana.py` | Vipassana 設定 |
+| `samadhi/configs/system.py` | `SystemConfig`, `SamathaConfig`, `VipassanaEngineConfig` |
+
+**インターフェース定義:**
+
+| クラス | シグネチャ |
+|--------|-----------|
+| `BaseAugmenter` | `forward(x, noise_level) -> Tuple[Tensor, Tensor]` |
+| `BaseSati` | `forward(current_state, santana) -> Tuple[bool, Dict]` |
+| `BaseVipassana` | `forward(s_star, santana) -> Tuple[Tensor, float]` |
+| `SantanaLog` | `add()`, `to_tensor()`, `__len__()`, etc. |
+
+**テストファイル:**
+
+* `tests/core/test_santana.py` - SantanaLog テスト (12 tests)
+* `tests/configs/test_v4_configs.py` - Config テスト (20 tests)
+* `tests/components/augmenters/test_base_augmenter.py` - Augmenter テスト (5 tests)
+* `tests/components/sati/test_base_sati.py` - Sati テスト (7 tests)
+* `tests/components/vipassana/test_base_vipassana.py` - Vipassana テスト (8 tests)
 
 ### Phase 2: コンポーネント実装・改修 (Component Implementation)
 
