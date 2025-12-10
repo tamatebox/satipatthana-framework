@@ -6,5 +6,6 @@ the quality and confidence of the convergence.
 """
 
 from samadhi.components.vipassana.base import BaseVipassana
+from samadhi.components.vipassana.standard import StandardVipassana
 
-__all__ = ["BaseVipassana"]
+__all__ = ["BaseVipassana", "StandardVipassana"]

@@ -239,45 +239,75 @@ v3.1の構造をベースに、8コンポーネント制への移行、Engineと
 * `tests/components/sati/test_base_sati.py` - Sati テスト (7 tests)
 * `tests/components/vipassana/test_base_vipassana.py` - Vipassana テスト (8 tests)
 
-### Phase 2: コンポーネント実装・改修 (Component Implementation)
+### Phase 2: コンポーネント実装・改修 (Component Implementation) - COMPLETED
+
+**Status**: **COMPLETED** (2024-12-10)
 
 **Goal**: 各単体モジュールの動作を保証する。
 
-1. **Augmenter (New)**:
+1. **Augmenter (New)**: DONE
 
-    * `BaseAugmenter` を継承する具象クラス（例: `IdentityAugmenter`, `GaussianNoiseAugmenter`）の実装。
+    * `IdentityAugmenter`: 入力をそのまま通過させる（severity=0）
+    * `GaussianNoiseAugmenter`: ガウシアンノイズを付与（max_noise_std設定可能）
 
-2. **Sati (New)**:
+2. **Sati (New)**: DONE
 
-    * `BaseSati` を継承し、状態履歴 (`SantanaLog`) から停止判定を行うロジック（例: `ThresholdSati`）の実装。
+    * `FixedStepSati`: 常に`should_stop=False`を返す（ループ制御はEngine側）
+    * `ThresholdSati`: エネルギーが閾値以下かつmin_steps到達で停止
 
-3. **Vicara (Refactor)**:
+3. **Vicara (Refactor)**: DONE
 
-    * `forward` ループ内で `Sati` を呼び出し、動的に停止するよう改修。
+    * `step()` メソッドを追加し、単一ステップ更新インターフェースを実装
+    * レガシー `forward()` は内部で `step()` を呼び出す形で後方互換性を維持
+    * ループ制御は SamathaEngine に委譲（Phase 3 で統合）
 
-    * `SantanaLog` オブジェクトを適切に更新するロジックを組み込む。
+4. **Vipassana (New)**: DONE
 
-4. **Vipassana (New)**:
+    * `StandardVipassana`: SantanaLog の軌跡特徴量をエンコードし、context vector と trust score を出力
+    * 遅延初期化により状態次元に自動適応
 
-    * `LogEncoder`: `SantanaLog` を入力として、可変長ログ系列を固定長ベクトルに変換 (LSTM/Transformer/Pooling)。
+5. **Decoder (Refactor)**: DONE
 
-    * `ConfidenceMonitor`: 固定長ベクトルから `Trust Score` と `V_ctx` を出力。
+    * `ConditionalDecoder`: 入力次元を `dim + context_dim` に拡張し、状態と文脈を結合して処理
+    * `SimpleAuxHead`: Stage 1 でのラベルガイダンス用シンプルMLP Head
 
-5. **Decoder (Refactor)**:
+6. **Objectives (Migration)**: DONE
 
-    * `ConditionalDecoder`: 入力次元を `dim + context_dim` に拡張し、状態と文脈を結合して処理するように実装。
+    * `samadhi/train/objectives/` から `samadhi/components/objectives/` へ移動
+    * 後方互換性のため旧パスからの再エクスポートを維持
 
-    * `SimpleAuxHead`: `BaseDecoder` を継承し、Stage 1 でのラベルガイダンスに使用されるシンプルなHeadを実装。
+**Phase 2 Tests**: PASSED (221 tests total)
 
-**Phase 2 Tests (Unit Tests)**:
+* **Augmenter Tests** (27 tests): `noise_level=0` で入力不変、Shape維持、severity値の正確性
+* **Sati Tests** (25 tests): SantanaLog入力、閾値判定、min_steps制約
+* **Vipassana Tests** (23 tests): 可変長ログ入力、バッチ処理、固定長出力
+* **Decoder Tests** (22 tests): 結合入力のShape検証、AuxHeadの出力検証
+* **Vicara Step Tests** (14 tests): 単一ステップ更新、後方互換性
 
-* **Augmenter**: `noise_level=0` で入力不変か。Shapeが維持されるか。
+#### Phase 2 実装詳細
 
-* **Sati**: `SantanaLog` を入力として、閾値を超えた場合に `stop=True` が返るか。
+**作成されたファイル:**
 
-* **Vipassana**: `SantanaLog` から異なる長さのログ入力に対して、バッチ処理が正常に動き、固定長ベクトルが出力されるか。
+| ファイル | 説明 |
+|---------|------|
+| `samadhi/components/augmenters/identity.py` | `IdentityAugmenter` 実装 |
+| `samadhi/components/augmenters/gaussian.py` | `GaussianNoiseAugmenter` 実装 |
+| `samadhi/components/sati/fixed_step.py` | `FixedStepSati` 実装 |
+| `samadhi/components/sati/threshold.py` | `ThresholdSati` 実装 |
+| `samadhi/components/vipassana/standard.py` | `StandardVipassana` 実装 |
+| `samadhi/components/decoders/conditional.py` | `ConditionalDecoder` 実装 |
+| `samadhi/components/decoders/auxiliary.py` | `SimpleAuxHead` 実装 |
+| `samadhi/components/objectives/*` | 全Objective (train/から移動) |
+| `samadhi/configs/decoders.py` | `ConditionalDecoderConfig`, `SimpleAuxHeadConfig` 追加 |
 
-* **Decoder**: 結合された入力に対して正しいShapeの出力が得られるか。
+**テストファイル:**
+
+* `tests/components/augmenters/test_augmenters.py` - 具象Augmenter テスト
+* `tests/components/sati/test_sati.py` - 具象Sati テスト
+* `tests/components/vipassana/test_vipassana.py` - 具象Vipassana テスト
+* `tests/components/decoders/test_decoders.py` - ConditionalDecoder/AuxHead テスト
+* `tests/components/vicara/test_vicara_step.py` - Vicara step インターフェース テスト
+* `tests/components/objectives/test_objectives.py` - Objective テスト
 
 ### Phase 3: Engine実装・結合 (Engine Integration)
 

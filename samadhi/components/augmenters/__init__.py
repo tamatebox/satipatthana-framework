@@ -6,5 +6,7 @@ real-world data quality variations for robust training.
 """
 
 from samadhi.components.augmenters.base import BaseAugmenter
+from samadhi.components.augmenters.identity import IdentityAugmenter
+from samadhi.components.augmenters.gaussian import GaussianNoiseAugmenter
 
-__all__ = ["BaseAugmenter"]
+__all__ = ["BaseAugmenter", "IdentityAugmenter", "GaussianNoiseAugmenter"]

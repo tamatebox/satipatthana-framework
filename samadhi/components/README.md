@@ -17,6 +17,7 @@ This directory contains the modular components that make up the Samadhi Model. T
 * **`augmenters/`**: Input augmentation modules that apply environmental noise to raw data for robust training. Returns `(x_augmented, severity)`.
 * **`sati/`**: "Mindfulness" or Gating modules. Monitors the state trajectory (SantanaLog) and determines when to stop the Vicara loop.
 * **`vipassana/`**: "Insight" or Meta-cognition modules. Analyzes the thinking process to produce context vectors and trust scores.
+* **`objectives/`**: Training objective components defining loss functions. Moved from `samadhi/train/objectives/` for better organization.
 
 ---
 
@@ -212,6 +213,45 @@ class MyVipassana(BaseVipassana):
         #   trust_score: float (0.0-1.0) - confidence score
         return v_ctx, trust_score
 ```
+
+### 9. Objectives (Training Loss Functions)
+
+Objectives define the loss functions used during training. They control what the model learns and which components are active during training.
+
+```python
+from samadhi.components.objectives.base_objective import BaseObjective
+import torch
+from typing import Dict, Any, Tuple, Optional
+
+class MyCustomObjective(BaseObjective):
+    # Define which components are needed
+    needs_vitakka = True
+    needs_vicara = True
+
+    def compute_loss(
+        self,
+        x: torch.Tensor,
+        y: Optional[torch.Tensor],
+        s0: torch.Tensor,
+        s_final: torch.Tensor,
+        decoded_s_final: torch.Tensor,
+        metadata: Dict[str, Any],
+        num_refine_steps: int,
+    ) -> Tuple[torch.Tensor, Dict[str, Any]]:
+        # Calculate your custom loss
+        # Return (total_loss, loss_components_dict)
+        pass
+```
+
+**Available Objectives:**
+
+* `AutoencoderObjective`: Pre-training (skips Vitakka/Vicara)
+* `UnsupervisedObjective`: Reconstruction + stability + entropy regularization
+* `SupervisedRegressionObjective`: Regression with MSE loss
+* `SupervisedClassificationObjective`: Classification with CrossEntropy loss
+* `RobustRegressionObjective`: Regression with Huber loss (robust to outliers)
+* `CosineSimilarityObjective`: Semantic alignment via cosine similarity
+* `AnomalyObjective`: Anomaly detection with margin-based loss
 
 ## Integration into the Framework
 

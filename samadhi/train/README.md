@@ -4,8 +4,10 @@ This directory contains the logic for training the Samadhi Model. The framework 
 
 ## Directory Structure
 
-*   **`objectives/`**: Contains the implementations of different training objectives (loss functions). This is the primary extension point for defining *what* the model learns.
+*   **`objectives/`**: **DEPRECATED** - Re-exports from `samadhi/components/objectives/` for backwards compatibility. New code should import from `samadhi.components.objectives` directly.
 *   **`hf_trainer.py`**: A wrapper around Hugging Face's `Trainer`. It orchestrates the training loop and delegates loss calculation to the selected `Objective`.
+
+> **Note (v4.0)**: Objectives have been moved to `samadhi/components/objectives/` for better organization. The old import paths (`samadhi.train.objectives`) still work but are deprecated.
 
 ---
 
@@ -15,7 +17,7 @@ In the Samadhi Framework, an **Objective** defines:
 1.  **The Loss Function**: How the model's performance is measured (e.g., reconstruction error, classification accuracy, stability loss).
 2.  **Execution Path**: Which parts of the model (Vitakka/Vicara) should run during the forward pass.
 
-All objectives inherit from `samadhi.train.objectives.base_objective.BaseObjective`.
+All objectives inherit from `samadhi.components.objectives.base_objective.BaseObjective`.
 
 ### Key Properties
 
@@ -24,10 +26,10 @@ All objectives inherit from `samadhi.train.objectives.base_objective.BaseObjecti
 
 ### How to Add a New Objective
 
-To define a new learning goal (e.g., a specific type of anomaly detection or a custom supervised task), create a new file in `samadhi/train/objectives/` and inherit from `BaseObjective`.
+To define a new learning goal (e.g., a specific type of anomaly detection or a custom supervised task), create a new file in `samadhi/components/objectives/` and inherit from `BaseObjective`.
 
 ```python
-from samadhi.train.objectives.base_objective import BaseObjective
+from samadhi.components.objectives.base_objective import BaseObjective
 import torch
 import torch.nn.functional as F
 
@@ -85,7 +87,7 @@ class MyCustomObjective(BaseObjective):
 
 ```python
 from samadhi.train.hf_trainer import SamadhiTrainer
-from samadhi.train.objectives.unsupervised import UnsupervisedObjective
+from samadhi.components.objectives.unsupervised import UnsupervisedObjective
 
 # ... model initialization ...
 
@@ -102,7 +104,7 @@ trainer.train()
 
 ## Testing New Objectives
 
-When adding a new Objective, add a corresponding test in `tests/train/objectives/`.
+When adding a new Objective, add a corresponding test in `tests/components/objectives/`.
 Ensure you test:
 1.  That the loss is calculated correctly.
 2.  That the `needs_vitakka` / `needs_vicara` flags are respected.
