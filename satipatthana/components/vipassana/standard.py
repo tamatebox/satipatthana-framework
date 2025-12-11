@@ -6,13 +6,13 @@ and projects 8 grounding metrics for static context. The two are fused
 to produce V_ctx and trust_score.
 """
 
-from typing import Tuple, Optional
+from typing import Optional
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence
 
-from satipatthana.components.vipassana.base import BaseVipassana
+from satipatthana.components.vipassana.base import BaseVipassana, VipassanaOutput
 from satipatthana.core.santana import SantanaLog
 from satipatthana.configs.vipassana import StandardVipassanaConfig
 
@@ -68,11 +68,31 @@ class StandardVipassana(BaseVipassana):
             nn.Linear(self.metric_proj_dim * 2, self.metric_proj_dim),
         )
 
-        # Trust head: takes grounding metrics to produce trust score
+        # Triple Score Heads
+        # 1. Trust head: metrics -> trust_score (OOD detection, result-based)
+        #    No gradient to GRU
         self.trust_head = nn.Sequential(
             nn.Linear(self.NUM_METRICS, 2 * self.NUM_METRICS),
             nn.ReLU(),
             nn.Linear(2 * self.NUM_METRICS, 1),
+            nn.Sigmoid(),
+        )
+
+        # 2. Conformity head: dynamic_context -> conformity_score (pattern conformity, process-based)
+        #    Provides gradient to GRU
+        self.conformity_head = nn.Sequential(
+            nn.Linear(self.gru_hidden_dim, self.gru_hidden_dim),
+            nn.ReLU(),
+            nn.Linear(self.gru_hidden_dim, 1),
+            nn.Sigmoid(),
+        )
+
+        # 3. Confidence head: dynamic_context + metrics -> confidence_score (comprehensive)
+        #    Provides gradient to GRU
+        self.confidence_head = nn.Sequential(
+            nn.Linear(self.gru_hidden_dim + self.NUM_METRICS, self.gru_hidden_dim),
+            nn.ReLU(),
+            nn.Linear(self.gru_hidden_dim, 1),
             nn.Sigmoid(),
         )
 
@@ -262,9 +282,14 @@ class StandardVipassana(BaseVipassana):
         santana: SantanaLog,
         probes: Optional[torch.Tensor] = None,
         recon_error: Optional[torch.Tensor] = None,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> VipassanaOutput:
         """
-        Analyze the thinking process and produce context vector and trust score.
+        Analyze the thinking process and produce context vector and triple scores.
+
+        Triple Score System:
+            - trust_score: metrics -> trust (OOD detection, result-based, NO gradient to GRU)
+            - conformity_score: dynamic_context -> conformity (pattern conformity, process-based)
+            - confidence_score: dynamic_context + metrics -> confidence (comprehensive)
 
         Args:
             s_star: Converged state tensor (Batch, Dim)
@@ -273,8 +298,11 @@ class StandardVipassana(BaseVipassana):
             recon_error: Per-sample reconstruction error (Batch, 1), optional
 
         Returns:
-            v_ctx: Context vector (Batch, context_dim) - fused dynamic + static context
-            trust_score: Confidence tensor (Batch, 1)
+            VipassanaOutput containing:
+                - v_ctx: Context vector (Batch, context_dim) - fused dynamic + static context
+                - trust_score: Trust score from metrics (Batch, 1)
+                - conformity_score: Conformity score from dynamic_context (Batch, 1)
+                - confidence_score: Confidence score from both (Batch, 1)
         """
         batch_size = s_star.size(0)
         device = s_star.device
@@ -289,7 +317,20 @@ class StandardVipassana(BaseVipassana):
         # Fusion: concatenate dynamic and static context
         v_ctx = torch.cat([dynamic_context, static_context], dim=1)  # (Batch, context_dim)
 
-        # Trust score from fused context
+        # Triple Scores
+        # 1. Trust score: metrics only (no gradient to GRU)
         trust_score = self.trust_head(metrics)  # (Batch, 1)
 
-        return v_ctx, trust_score
+        # 2. Conformity score: dynamic_context only (gradient flows to GRU)
+        conformity_score = self.conformity_head(dynamic_context)  # (Batch, 1)
+
+        # 3. Confidence score: both dynamic_context and metrics (gradient flows to GRU)
+        combined_features = torch.cat([dynamic_context, metrics], dim=1)  # (Batch, gru_hidden_dim + 8)
+        confidence_score = self.confidence_head(combined_features)  # (Batch, 1)
+
+        return VipassanaOutput(
+            v_ctx=v_ctx,
+            trust_score=trust_score,
+            conformity_score=conformity_score,
+            confidence_score=confidence_score,
+        )

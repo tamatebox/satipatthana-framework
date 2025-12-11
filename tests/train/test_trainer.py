@@ -507,7 +507,10 @@ class TestLossComputation:
         assert loss >= 0  # BCE loss is always >= 0
         assert "trust_scores" in outputs
         assert "targets" in outputs
-        assert "bce_loss" in outputs
+        # Triple Score system uses individual BCE losses
+        assert "trust_bce" in outputs
+        assert "conformity_bce" in outputs
+        assert "confidence_bce" in outputs
 
     def test_stage3_loss(self, system_full, training_args, dataset):
         """Test Stage 3 loss computation."""

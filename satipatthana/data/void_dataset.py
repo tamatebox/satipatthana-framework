@@ -48,7 +48,7 @@ class VoidDataset(Dataset):
 
     def __init__(
         self,
-        source: Union[Dataset, list, tuple, Callable[[], Any]],
+        source: Union[Dataset, list, tuple, torch.Tensor, Callable[[], Any]],
         length: Optional[int] = None,
         transform: Optional[Callable] = None,
     ):
@@ -69,7 +69,9 @@ class VoidDataset(Dataset):
         """Return dataset length."""
         if self.is_dynamic:
             return self._length
-        return len(self.source)
+        if isinstance(self.source, torch.Tensor):
+            return self.source.size(0)
+        return len(self.source)  # type: ignore[arg-type]
 
     def __getitem__(self, idx: int) -> dict:
         """
@@ -83,10 +85,10 @@ class VoidDataset(Dataset):
         """
         if self.is_dynamic:
             # Dynamic: call the generator function
-            sample = self.source()
+            sample = self.source()  # type: ignore[operator]
         else:
             # Static: index into the source (with wrap-around)
-            actual_idx = idx % len(self.source)
+            actual_idx = idx % len(self)
             sample = self.source[actual_idx]
 
         # Normalize to dict format with "x" key
@@ -186,16 +188,19 @@ class FilteredNoiseVoid(VoidDataset):
         min_distance: Minimum distance from any reference point (default: 0.1)
         noise_range: (low, high) tuple for uniform noise generation (default: (-1.5, 1.5))
         max_attempts: Maximum rejection sampling attempts (default: 1000)
+        reference_sample_size: Maximum number of reference samples to use (default: 2000).
+            If reference_data has more samples, a random subset is used for efficiency.
 
     Example:
         # Generate noise far from training data
-        train_sample = train_data[:100]  # Use subset for efficiency
+        # No need to manually subset - automatic subsampling handles large datasets
         void_data = FilteredNoiseVoid(
-            reference_data=train_sample,
+            reference_data=train_data,  # Can be large, will be subsampled
             shape=(2,),
             length=1000,
             min_distance=0.1,
             noise_range=(-1.5, 1.5),
+            reference_sample_size=2000,  # Use at most 2000 reference points
         )
     """
 
@@ -207,7 +212,13 @@ class FilteredNoiseVoid(VoidDataset):
         min_distance: float = 0.1,
         noise_range: tuple = (-1.5, 1.5),
         max_attempts: int = 1000,
+        reference_sample_size: int = 2000,
     ):
+        # Subsample reference data if too large for efficiency
+        if reference_data.size(0) > reference_sample_size:
+            indices = torch.randperm(reference_data.size(0))[:reference_sample_size]
+            reference_data = reference_data[indices]
+
         self.reference_data = reference_data
         self.shape = shape
         self.min_distance = min_distance

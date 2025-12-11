@@ -16,7 +16,7 @@ from satipatthana.components.augmenters.base import BaseAugmenter
 from satipatthana.components.vitakka.base import BaseVitakka
 from satipatthana.components.vicara.base import BaseVicara
 from satipatthana.components.sati.base import BaseSati
-from satipatthana.components.vipassana.base import BaseVipassana
+from satipatthana.components.vipassana.base import BaseVipassana, VipassanaOutput
 from satipatthana.configs.system import SamathaConfig, VipassanaEngineConfig
 from satipatthana.utils.logger import get_logger
 
@@ -297,12 +297,12 @@ class VipassanaEngine(nn.Module):
         santana: SantanaLog,
         probes: Optional[torch.Tensor] = None,
         recon_error: Optional[torch.Tensor] = None,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> VipassanaOutput:
         """
         Vipassana forward pass: Introspection.
 
         Analyzes the converged state and thinking trajectory to produce
-        confidence metrics.
+        confidence metrics using the Triple Score system.
 
         Args:
             s_star: Converged state from Samatha (Batch, Dim)
@@ -313,31 +313,14 @@ class VipassanaEngine(nn.Module):
                         High recon_error indicates OOD input
 
         Returns:
-            v_ctx: Context vector (Batch, context_dim) - embedding of "doubt"
-            trust_score: Confidence tensor (Batch, 1) for external control
+            VipassanaOutput containing:
+                - v_ctx: Context vector (Batch, context_dim) - embedding of "doubt"
+                - trust_score: Trust score from metrics (Batch, 1)
+                - conformity_score: Conformity score from dynamic_context (Batch, 1)
+                - confidence_score: Confidence score from both (Batch, 1)
         """
-        batch_size = s_star.size(0)
-        device = s_star.device
-        dtype = s_star.dtype
-
-        # Run Vipassana analysis
-        v_ctx, trust_score = self.vipassana(s_star, santana, probes=probes, recon_error=recon_error)
-
-        # Ensure trust_score is (Batch, 1) tensor
-        # StandardVipassana now returns tensor directly
-        if not isinstance(trust_score, torch.Tensor):
-            # Backward compatibility: convert scalar to tensor if needed
-            trust_score = torch.full(
-                (batch_size, 1),
-                trust_score,
-                device=device,
-                dtype=dtype,
-            )
-        elif trust_score.dim() == 0:
-            # Handle 0-d tensor (scalar tensor)
-            trust_score = trust_score.expand(batch_size, 1)
-
-        return v_ctx, trust_score
+        # Run Vipassana analysis - returns VipassanaOutput directly
+        return self.vipassana(s_star, santana, probes=probes, recon_error=recon_error)
 
 
-__all__ = ["SamathaEngine", "SamathaOutput", "VipassanaEngine"]
+__all__ = ["SamathaEngine", "SamathaOutput", "VipassanaEngine", "VipassanaOutput"]

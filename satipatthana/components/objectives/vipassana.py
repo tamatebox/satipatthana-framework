@@ -16,18 +16,40 @@ class VipassanaObjective:
     """
     Objective function for Stage 2 Vipassana training.
 
-    Uses Binary Cross Entropy to train Vipassana to predict trust scores
+    Uses Binary Cross Entropy to train Vipassana to predict triple scores
     that match the ground truth quality of the thinking process.
+
+    Triple Score System:
+        - trust_score: Based on static metrics (OOD detection, result-based)
+        - conformity_score: Based on dynamic_context (pattern conformity, process-based)
+        - confidence_score: Based on both (comprehensive assessment)
 
     Target values:
     - Good trajectory (clean input, normal Samatha): 1.0
     - Augmented trajectory: 1.0 - severity
     - Drunk mode trajectory: 0.0
     - Mismatched trajectory (shuffled S*/SantanaLog): 0.0
+    - Void trajectory (OOD input): 0.0
     """
 
-    def __init__(self, device: Optional[str] = None):
+    def __init__(
+        self,
+        device: Optional[str] = None,
+        trust_weight: float = 1.0,
+        conformity_weight: float = 1.0,
+        confidence_weight: float = 1.0,
+    ):
+        """
+        Args:
+            device: Target device
+            trust_weight: Loss weight for trust_score
+            conformity_weight: Loss weight for conformity_score
+            confidence_weight: Loss weight for confidence_score
+        """
         self.device = torch.device(device) if device else self._get_default_device()
+        self.trust_weight = trust_weight
+        self.conformity_weight = conformity_weight
+        self.confidence_weight = confidence_weight
 
     def _get_default_device(self) -> torch.device:
         if torch.cuda.is_available():
@@ -41,32 +63,53 @@ class VipassanaObjective:
         self,
         trust_scores: torch.Tensor,
         targets: torch.Tensor,
+        conformity_scores: torch.Tensor,
+        confidence_scores: torch.Tensor,
     ) -> Tuple[torch.Tensor, Dict[str, Any]]:
         """
-        Compute Vipassana training loss.
+        Compute Vipassana training loss with Triple Score.
 
         Args:
             trust_scores: Predicted trust scores from Vipassana (Batch, 1)
             targets: Ground truth trust targets (Batch, 1) in [0, 1]
+            conformity_scores: Conformity scores from dynamic_context (Batch, 1)
+            confidence_scores: Confidence scores from both (Batch, 1)
 
         Returns:
-            total_loss: BCE loss
+            total_loss: Weighted sum of BCE losses
             loss_components: Dictionary with loss breakdown
         """
-        # Binary Cross Entropy loss
-        bce_loss = F.binary_cross_entropy(trust_scores, targets)
+        # 1. Trust score BCE loss
+        trust_bce = F.binary_cross_entropy(trust_scores, targets)
 
-        # Additional metrics for logging
-        pred_mean = trust_scores.mean().item()
-        target_mean = targets.mean().item()
-        accuracy = ((trust_scores > 0.5) == (targets > 0.5)).float().mean().item()
+        # 2. Conformity score BCE loss
+        conformity_bce = F.binary_cross_entropy(conformity_scores, targets)
 
-        return bce_loss, {
-            "bce_loss": bce_loss.item(),
-            "pred_trust_mean": pred_mean,
-            "target_trust_mean": target_mean,
-            "accuracy": accuracy,
+        # 3. Confidence score BCE loss
+        confidence_bce = F.binary_cross_entropy(confidence_scores, targets)
+
+        # Total loss: weighted sum
+        total_loss = (
+            self.trust_weight * trust_bce
+            + self.conformity_weight * conformity_bce
+            + self.confidence_weight * confidence_bce
+        )
+
+        loss_components = {
+            "total_loss": total_loss.item(),
+            "trust_bce": trust_bce.item(),
+            "conformity_bce": conformity_bce.item(),
+            "confidence_bce": confidence_bce.item(),
+            "trust_pred_mean": trust_scores.mean().item(),
+            "conformity_pred_mean": conformity_scores.mean().item(),
+            "confidence_pred_mean": confidence_scores.mean().item(),
+            "target_mean": targets.mean().item(),
+            "trust_accuracy": ((trust_scores > 0.5) == (targets > 0.5)).float().mean().item(),
+            "conformity_accuracy": ((conformity_scores > 0.5) == (targets > 0.5)).float().mean().item(),
+            "confidence_accuracy": ((confidence_scores > 0.5) == (targets > 0.5)).float().mean().item(),
         }
+
+        return total_loss, loss_components
 
     def compute_contrastive_loss(
         self,

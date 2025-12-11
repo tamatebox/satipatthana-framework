@@ -336,17 +336,17 @@ class TestVipassanaEngine:
         for _ in range(5):
             santana.add(torch.randn(batch_size, state_dim), energy=0.1)
 
-        v_ctx, trust_score = vipassana_engine(s_star, santana)
+        output = vipassana_engine(s_star, santana)
 
         # Check context vector shape
-        assert v_ctx.shape == (batch_size, context_dim)
+        assert output.v_ctx.shape == (batch_size, context_dim)
 
         # Check trust score shape
-        assert trust_score.shape == (batch_size, 1)
+        assert output.trust_score.shape == (batch_size, 1)
 
         # Trust score should be in [0, 1]
-        assert torch.all(trust_score >= 0.0)
-        assert torch.all(trust_score <= 1.0)
+        assert torch.all(output.trust_score >= 0.0)
+        assert torch.all(output.trust_score <= 1.0)
 
     def test_trust_score_for_good_trajectory(self, vipassana_engine):
         """Test trust score for a smooth convergence trajectory."""
@@ -366,10 +366,10 @@ class TestVipassanaEngine:
             s_prev = s_curr
 
         s_star = santana.get_final_state()
-        v_ctx, trust_score = vipassana_engine(s_star, santana)
+        output = vipassana_engine(s_star, santana)
 
         # Good trajectory should have reasonable trust score
-        assert trust_score.mean() > 0.0
+        assert output.trust_score.mean() > 0.0
 
     def test_trust_score_for_chaotic_trajectory(self, vipassana_engine):
         """Test trust score for a chaotic trajectory."""
@@ -383,7 +383,7 @@ class TestVipassanaEngine:
             santana.add(s, energy=2.0)  # High energy
 
         s_star = santana.get_final_state()
-        v_ctx_chaotic, trust_chaotic = vipassana_engine(s_star, santana)
+        output_chaotic = vipassana_engine(s_star, santana)
 
         # Create smooth trajectory for comparison
         santana_smooth = SantanaLog()
@@ -393,11 +393,11 @@ class TestVipassanaEngine:
             s_smooth = s_smooth + torch.randn_like(s_smooth) * 0.01
 
         s_star_smooth = santana_smooth.get_final_state()
-        v_ctx_smooth, trust_smooth = vipassana_engine(s_star_smooth, santana_smooth)
+        output_smooth = vipassana_engine(s_star_smooth, santana_smooth)
 
         # Trust scores exist (actual values depend on learned parameters)
-        assert trust_chaotic.shape == (batch_size, 1)
-        assert trust_smooth.shape == (batch_size, 1)
+        assert output_chaotic.trust_score.shape == (batch_size, 1)
+        assert output_smooth.trust_score.shape == (batch_size, 1)
 
     def test_context_vector_different_for_different_trajectories(self, vipassana_engine):
         """Test that different trajectories produce different context vectors."""
@@ -409,17 +409,17 @@ class TestVipassanaEngine:
         for _ in range(5):
             santana1.add(torch.randn(batch_size, state_dim) * 0.1, energy=0.1)
         s_star1 = santana1.get_final_state()
-        v_ctx1, _ = vipassana_engine(s_star1, santana1)
+        output1 = vipassana_engine(s_star1, santana1)
 
         # Different trajectory (larger magnitude states)
         santana2 = SantanaLog()
         for _ in range(5):
             santana2.add(torch.randn(batch_size, state_dim) * 2.0, energy=1.0)
         s_star2 = santana2.get_final_state()
-        v_ctx2, _ = vipassana_engine(s_star2, santana2)
+        output2 = vipassana_engine(s_star2, santana2)
 
         # Context vectors should differ
-        assert not torch.allclose(v_ctx1, v_ctx2, atol=0.01)
+        assert not torch.allclose(output1.v_ctx, output2.v_ctx, atol=0.01)
 
     def test_empty_trajectory(self, vipassana_engine):
         """Test handling of empty trajectory."""
@@ -429,11 +429,11 @@ class TestVipassanaEngine:
         s_star = torch.randn(batch_size, state_dim)
         santana = SantanaLog()  # Empty
 
-        v_ctx, trust_score = vipassana_engine(s_star, santana)
+        output = vipassana_engine(s_star, santana)
 
         # Should handle empty trajectory gracefully
-        assert v_ctx.shape == (batch_size, 16)
-        assert trust_score.shape == (batch_size, 1)
+        assert output.v_ctx.shape == (batch_size, 16)
+        assert output.trust_score.shape == (batch_size, 1)
 
     def test_single_step_trajectory(self, vipassana_engine):
         """Test handling of single-step trajectory."""
@@ -444,11 +444,11 @@ class TestVipassanaEngine:
         santana = SantanaLog()
         santana.add(s_star.clone(), energy=0.0)
 
-        v_ctx, trust_score = vipassana_engine(s_star, santana)
+        output = vipassana_engine(s_star, santana)
 
         # Should handle single step trajectory
-        assert v_ctx.shape == (batch_size, 16)
-        assert trust_score.shape == (batch_size, 1)
+        assert output.v_ctx.shape == (batch_size, 16)
+        assert output.trust_score.shape == (batch_size, 1)
 
 
 class TestIntegratedFlow:
@@ -459,15 +459,15 @@ class TestIntegratedFlow:
         x = torch.randn(4, 16)
 
         # Run Samatha
-        output = samatha_engine(x)
+        samatha_output = samatha_engine(x)
 
         # Run Vipassana on Samatha output
-        v_ctx, trust_score = vipassana_engine(output.s_star, output.santana)
+        vipassana_output = vipassana_engine(samatha_output.s_star, samatha_output.santana)
 
         # All outputs should be valid
-        assert output.s_star.shape == (4, 32)
-        assert v_ctx.shape == (4, 16)
-        assert trust_score.shape == (4, 1)
+        assert samatha_output.s_star.shape == (4, 32)
+        assert vipassana_output.v_ctx.shape == (4, 16)
+        assert vipassana_output.trust_score.shape == (4, 1)
 
     def test_drunk_vs_sober_trust_difference(self, samatha_engine, vipassana_engine):
         """Test that drunk mode produces lower trust scores."""
@@ -478,7 +478,7 @@ class TestIntegratedFlow:
         samatha_engine.eval()
         with torch.no_grad():
             output_sober = samatha_engine(x, drunk_mode=False)
-            _, trust_sober = vipassana_engine(output_sober.s_star, output_sober.santana)
+            vipassana_output_sober = vipassana_engine(output_sober.s_star, output_sober.santana)
 
         # Multiple drunk mode runs (trust may vary)
         drunk_trusts = []
@@ -486,8 +486,8 @@ class TestIntegratedFlow:
             torch.manual_seed(seed)
             with torch.no_grad():
                 output_drunk = samatha_engine(x, drunk_mode=True)
-                _, trust_drunk = vipassana_engine(output_drunk.s_star, output_drunk.santana)
-                drunk_trusts.append(trust_drunk.mean().item())
+                vipassana_output_drunk = vipassana_engine(output_drunk.s_star, output_drunk.santana)
+                drunk_trusts.append(vipassana_output_drunk.trust_score.mean().item())
 
         # Note: This test verifies that the pipeline works and produces values
         # The actual trust score difference depends on network weights
@@ -527,17 +527,17 @@ class TestIntegratedFlow:
         # Clean path
         torch.manual_seed(42)
         output_clean = engine(x, noise_level=0.0)
-        v_ctx_clean, trust_clean = vipassana_engine(output_clean.s_star, output_clean.santana)
+        vipassana_output_clean = vipassana_engine(output_clean.s_star, output_clean.santana)
 
         # Noisy path
         torch.manual_seed(42)
         output_noisy = engine(x, noise_level=0.8)
-        v_ctx_noisy, trust_noisy = vipassana_engine(output_noisy.s_star, output_noisy.santana)
+        vipassana_output_noisy = vipassana_engine(output_noisy.s_star, output_noisy.santana)
 
         # Verify severity reflects noise level
         assert torch.all(output_clean.severity == 0.0)
         assert torch.all(output_noisy.severity > 0.0)
 
         # Both should produce valid context and trust
-        assert v_ctx_clean.shape == (4, 16)
-        assert v_ctx_noisy.shape == (4, 16)
+        assert vipassana_output_clean.v_ctx.shape == (4, 16)
+        assert vipassana_output_noisy.v_ctx.shape == (4, 16)

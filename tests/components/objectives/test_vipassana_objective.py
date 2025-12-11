@@ -22,19 +22,27 @@ class TestVipassanaObjective:
         assert obj.device is not None
 
     def test_compute_loss_basic(self):
-        """Test basic BCE loss computation."""
+        """Test basic Triple Score BCE loss computation."""
         obj = VipassanaObjective()
 
         trust_scores = torch.tensor([[0.8], [0.2], [0.9], [0.1]])
+        conformity_scores = torch.tensor([[0.75], [0.25], [0.85], [0.15]])
+        confidence_scores = torch.tensor([[0.78], [0.22], [0.88], [0.12]])
         targets = torch.tensor([[1.0], [0.0], [1.0], [0.0]])
 
-        loss, components = obj.compute_loss(trust_scores, targets)
+        loss, components = obj.compute_loss(trust_scores, targets, conformity_scores, confidence_scores)
 
         assert loss > 0
-        assert "bce_loss" in components
-        assert "accuracy" in components
+        # Check all three BCE losses are present
+        assert "trust_bce" in components
+        assert "conformity_bce" in components
+        assert "confidence_bce" in components
+        # Check accuracies
+        assert "trust_accuracy" in components
+        assert "conformity_accuracy" in components
+        assert "confidence_accuracy" in components
         # With these values, accuracy should be 1.0
-        assert components["accuracy"] == 1.0
+        assert components["trust_accuracy"] == 1.0
 
     def test_compute_loss_mismatch(self):
         """Test loss with mismatched predictions."""
@@ -42,13 +50,33 @@ class TestVipassanaObjective:
 
         # Predictions opposite to targets
         trust_scores = torch.tensor([[0.1], [0.9], [0.2], [0.8]])
+        conformity_scores = torch.tensor([[0.15], [0.85], [0.25], [0.75]])
+        confidence_scores = torch.tensor([[0.12], [0.88], [0.22], [0.78]])
         targets = torch.tensor([[1.0], [0.0], [1.0], [0.0]])
 
-        loss, components = obj.compute_loss(trust_scores, targets)
+        loss, components = obj.compute_loss(trust_scores, targets, conformity_scores, confidence_scores)
 
         assert loss > 0
         # Accuracy should be 0 when predictions are opposite
-        assert components["accuracy"] == 0.0
+        assert components["trust_accuracy"] == 0.0
+        assert components["conformity_accuracy"] == 0.0
+        assert components["confidence_accuracy"] == 0.0
+
+    def test_compute_loss_weights(self):
+        """Test that custom weights affect the loss."""
+        obj_equal = VipassanaObjective(trust_weight=1.0, conformity_weight=1.0, confidence_weight=1.0)
+        obj_trust_only = VipassanaObjective(trust_weight=1.0, conformity_weight=0.0, confidence_weight=0.0)
+
+        trust_scores = torch.tensor([[0.8], [0.2]])
+        conformity_scores = torch.tensor([[0.7], [0.3]])
+        confidence_scores = torch.tensor([[0.75], [0.25]])
+        targets = torch.tensor([[1.0], [0.0]])
+
+        loss_equal, _ = obj_equal.compute_loss(trust_scores, targets, conformity_scores, confidence_scores)
+        loss_trust_only, _ = obj_trust_only.compute_loss(trust_scores, targets, conformity_scores, confidence_scores)
+
+        # Equal weights should give higher total loss than trust-only (since all contribute)
+        assert loss_equal > loss_trust_only
 
     def test_contrastive_loss(self):
         """Test contrastive loss between good and bad trajectories."""

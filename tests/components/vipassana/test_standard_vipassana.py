@@ -1,11 +1,12 @@
 """
-Tests for StandardVipassana implementation (v4.1 GRU-based).
+Tests for StandardVipassana implementation (v4.1 GRU-based with Triple Score).
 """
 
 import pytest
 import torch
 
 from satipatthana.components.vipassana.standard import StandardVipassana
+from satipatthana.components.vipassana.base import VipassanaOutput
 from satipatthana.configs.vipassana import StandardVipassanaConfig
 from satipatthana.core.santana import SantanaLog
 
@@ -41,7 +42,7 @@ class TestStandardVipassana:
         assert vipassana.config.context_dim == 96  # 64 + 32
 
     def test_output_shapes(self):
-        """Test that output shapes are correct."""
+        """Test that output shapes are correct (Triple Score)."""
         config = StandardVipassanaConfig(
             latent_dim=64,
             gru_hidden_dim=16,
@@ -58,14 +59,16 @@ class TestStandardVipassana:
         santana.add(state, energy=0.05)
 
         s_star = torch.randn(batch_size, state_dim)
-        v_ctx, trust_score = vipassana(s_star, santana)
+        output = vipassana(s_star, santana)
 
-        assert v_ctx.shape == (batch_size, 32)  # 16 + 16
-        assert isinstance(trust_score, torch.Tensor)
-        assert trust_score.shape == (batch_size, 1)
+        assert isinstance(output, VipassanaOutput)
+        assert output.v_ctx.shape == (batch_size, 32)  # 16 + 16
+        assert output.trust_score.shape == (batch_size, 1)
+        assert output.conformity_score.shape == (batch_size, 1)
+        assert output.confidence_score.shape == (batch_size, 1)
 
     def test_trust_score_in_valid_range(self):
-        """Test that trust score is in [0.0, 1.0] range."""
+        """Test that all scores are in [0.0, 1.0] range."""
         config = StandardVipassanaConfig(latent_dim=32)
         vipassana = StandardVipassana(config)
 
@@ -74,9 +77,11 @@ class TestStandardVipassana:
         santana.add(state, energy=0.1)
 
         s_star = torch.randn(4, 32)
-        _, trust_score = vipassana(s_star, santana)
+        output = vipassana(s_star, santana)
 
-        assert (trust_score >= 0.0).all() and (trust_score <= 1.0).all()
+        assert (output.trust_score >= 0.0).all() and (output.trust_score <= 1.0).all()
+        assert (output.conformity_score >= 0.0).all() and (output.conformity_score <= 1.0).all()
+        assert (output.confidence_score >= 0.0).all() and (output.confidence_score <= 1.0).all()
 
     def test_handles_empty_santana(self):
         """Test behavior with empty SantanaLog."""
@@ -86,10 +91,10 @@ class TestStandardVipassana:
         santana = SantanaLog()  # Empty
         s_star = torch.randn(4, 32)
 
-        v_ctx, trust_score = vipassana(s_star, santana)
+        output = vipassana(s_star, santana)
 
-        assert v_ctx.shape == (4, 64)  # context_dim = 32 + 32
-        assert (trust_score >= 0.0).all() and (trust_score <= 1.0).all()
+        assert output.v_ctx.shape == (4, 64)  # context_dim = 32 + 32
+        assert (output.trust_score >= 0.0).all() and (output.trust_score <= 1.0).all()
 
     def test_handles_single_step(self):
         """Test with single step in trajectory."""
@@ -101,10 +106,10 @@ class TestStandardVipassana:
         santana.add(state, energy=0.1)
 
         s_star = torch.randn(4, 32)
-        v_ctx, trust_score = vipassana(s_star, santana)
+        output = vipassana(s_star, santana)
 
-        assert v_ctx.shape == (4, 64)
-        assert (trust_score >= 0.0).all() and (trust_score <= 1.0).all()
+        assert output.v_ctx.shape == (4, 64)
+        assert (output.trust_score >= 0.0).all() and (output.trust_score <= 1.0).all()
 
     def test_handles_long_trajectory(self):
         """Test with long trajectory."""
@@ -117,10 +122,10 @@ class TestStandardVipassana:
             santana.add(state, energy=0.1 / (i + 1))
 
         s_star = torch.randn(4, 32)
-        v_ctx, trust_score = vipassana(s_star, santana)
+        output = vipassana(s_star, santana)
 
-        assert v_ctx.shape == (4, 64)
-        assert (trust_score >= 0.0).all() and (trust_score <= 1.0).all()
+        assert output.v_ctx.shape == (4, 64)
+        assert (output.trust_score >= 0.0).all() and (output.trust_score <= 1.0).all()
 
     def test_context_dim_customizable(self):
         """Test that context_dim is computed from gru_hidden_dim + metric_proj_dim."""
@@ -143,9 +148,9 @@ class TestStandardVipassana:
             santana.add(state, energy=0.1)
 
             s_star = torch.randn(4, 32)
-            v_ctx, _ = vipassana(s_star, santana)
+            output = vipassana(s_star, santana)
 
-            assert v_ctx.shape == (4, expected_ctx_dim)
+            assert output.v_ctx.shape == (4, expected_ctx_dim)
 
     def test_different_batch_sizes(self):
         """Test with various batch sizes."""
@@ -158,11 +163,11 @@ class TestStandardVipassana:
             santana.add(state, energy=0.1)
 
             s_star = torch.randn(batch_size, 32)
-            v_ctx, trust_score = vipassana(s_star, santana)
+            output = vipassana(s_star, santana)
 
-            assert v_ctx.shape == (batch_size, 64)
-            assert trust_score.shape == (batch_size, 1)
-            assert (trust_score >= 0.0).all() and (trust_score <= 1.0).all()
+            assert output.v_ctx.shape == (batch_size, 64)
+            assert output.trust_score.shape == (batch_size, 1)
+            assert (output.trust_score >= 0.0).all() and (output.trust_score <= 1.0).all()
 
     def test_gru_encodes_trajectory_sequence(self):
         """Test that GRU encodes sequence information (not just aggregation)."""
@@ -184,11 +189,11 @@ class TestStandardVipassana:
             santana2.add(state)
 
         s_star = torch.randn(batch_size, 32)
-        v_ctx1, _ = vipassana(s_star, santana1)
-        v_ctx2, _ = vipassana(s_star, santana2)
+        output1 = vipassana(s_star, santana1)
+        output2 = vipassana(s_star, santana2)
 
         # GRU should produce different contexts for different sequences
-        assert not torch.allclose(v_ctx1, v_ctx2, atol=1e-3)
+        assert not torch.allclose(output1.v_ctx, output2.v_ctx, atol=1e-3)
 
     def test_convergence_steps_affects_metrics(self):
         """Test that convergence_steps field is used in metrics computation."""
@@ -210,11 +215,11 @@ class TestStandardVipassana:
         santana_late.convergence_steps = torch.tensor([9, 9, 9, 9])
 
         s_star = torch.randn(batch_size, 32)
-        v_ctx_early, _ = vipassana(s_star, santana_early)
-        v_ctx_late, _ = vipassana(s_star, santana_late)
+        output_early = vipassana(s_star, santana_early)
+        output_late = vipassana(s_star, santana_late)
 
         # Different convergence steps should produce different contexts
-        assert not torch.allclose(v_ctx_early, v_ctx_late)
+        assert not torch.allclose(output_early.v_ctx, output_late.v_ctx)
 
     def test_with_probes(self):
         """Test that probes affect semantic features."""
@@ -234,11 +239,11 @@ class TestStandardVipassana:
         # s_star far from all probes
         s_star_far = probes.mean(dim=0).unsqueeze(0).expand(batch_size, -1) + torch.randn(batch_size, 32) * 10
 
-        v_ctx_close, _ = vipassana(s_star_close, santana, probes=probes)
-        v_ctx_far, _ = vipassana(s_star_far, santana, probes=probes)
+        output_close = vipassana(s_star_close, santana, probes=probes)
+        output_far = vipassana(s_star_far, santana, probes=probes)
 
         # Different proximity to probes should produce different contexts
-        assert not torch.allclose(v_ctx_close, v_ctx_far)
+        assert not torch.allclose(output_close.v_ctx, output_far.v_ctx)
 
     def test_with_recon_error(self):
         """Test that recon_error affects context."""
@@ -253,14 +258,14 @@ class TestStandardVipassana:
 
         # Low recon error (in-distribution)
         recon_error_low = torch.ones(batch_size, 1) * 0.01
-        v_ctx_low, _ = vipassana(s_star, santana, recon_error=recon_error_low)
+        output_low = vipassana(s_star, santana, recon_error=recon_error_low)
 
         # High recon error (out-of-distribution)
         recon_error_high = torch.ones(batch_size, 1) * 10.0
-        v_ctx_high, _ = vipassana(s_star, santana, recon_error=recon_error_high)
+        output_high = vipassana(s_star, santana, recon_error=recon_error_high)
 
         # Different recon errors should produce different contexts
-        assert not torch.allclose(v_ctx_low, v_ctx_high)
+        assert not torch.allclose(output_low.v_ctx, output_high.v_ctx)
 
     def test_is_nn_module(self):
         """Test that StandardVipassana is an nn.Module."""
@@ -290,17 +295,19 @@ class TestStandardVipassana:
         santana.add(state, energy=0.1)
 
         s_star = torch.randn(4, 32)
-        v_ctx, trust_score = vipassana(s_star, santana)
+        output = vipassana(s_star, santana)
 
-        assert v_ctx.device == s_star.device
-        assert trust_score.device == s_star.device
+        assert output.v_ctx.device == s_star.device
+        assert output.trust_score.device == s_star.device
+        assert output.conformity_score.device == s_star.device
+        assert output.confidence_score.device == s_star.device
 
     def test_num_metrics_constant(self):
         """Test that NUM_METRICS is correctly set."""
         assert StandardVipassana.NUM_METRICS == 8
 
     def test_gradient_flow(self):
-        """Test that gradients flow through the model."""
+        """Test that gradients flow through the model (especially via conformity/confidence)."""
         config = StandardVipassanaConfig(latent_dim=32)
         vipassana = StandardVipassana(config)
 
@@ -310,10 +317,10 @@ class TestStandardVipassana:
         santana.add(state + torch.randn(4, 32) * 0.1)
 
         s_star = torch.randn(4, 32, requires_grad=True)
-        v_ctx, trust_score = vipassana(s_star, santana)
+        output = vipassana(s_star, santana)
 
-        # Backprop through trust_score
-        loss = trust_score.mean()
+        # Backprop through all three scores (conformity and confidence provide gradients to GRU)
+        loss = output.trust_score.mean() + output.conformity_score.mean() + output.confidence_score.mean()
         loss.backward()
 
         # Check gradients exist

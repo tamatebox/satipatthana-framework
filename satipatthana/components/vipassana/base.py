@@ -6,7 +6,7 @@ determine the quality and confidence of the Samatha convergence.
 """
 
 from abc import ABC, abstractmethod
-from typing import Tuple, Union
+from dataclasses import dataclass
 import torch
 import torch.nn as nn
 
@@ -17,6 +17,29 @@ from satipatthana.utils.logger import get_logger
 logger = get_logger(__name__)
 
 
+@dataclass
+class VipassanaOutput:
+    """
+    Output container for Vipassana forward pass.
+
+    Triple Score System:
+        - trust_score: Based on static metrics (OOD detection, result-based)
+        - conformity_score: Based on dynamic_context (pattern conformity, process-based)
+        - confidence_score: Based on both (comprehensive assessment)
+
+    Attributes:
+        v_ctx: Context vector (Batch, context_dim) - fused dynamic + static context
+        trust_score: Trust score from metrics (Batch, 1)
+        conformity_score: Conformity score from dynamic_context (Batch, 1)
+        confidence_score: Confidence score from both (Batch, 1)
+    """
+
+    v_ctx: torch.Tensor
+    trust_score: torch.Tensor
+    conformity_score: torch.Tensor
+    confidence_score: torch.Tensor
+
+
 class BaseVipassana(nn.Module, ABC):
     """
     Base Vipassana (Insight/Meta-cognition) Interface.
@@ -24,7 +47,7 @@ class BaseVipassana(nn.Module, ABC):
     Analyzes the converged state (S*) and thinking trajectory (SantanaLog)
     to produce:
         - Context vector (V_ctx): Embedding of "doubt/ambiguity"
-        - Trust score (alpha): Scalar confidence score (0.0-1.0)
+        - Triple Scores: trust, conformity, and confidence scores
 
     The context vector can be used by the ConditionalDecoder to produce
     "humble" outputs that reflect uncertainty in the thinking process.
@@ -35,7 +58,7 @@ class BaseVipassana(nn.Module, ABC):
         self.config = config
 
     @abstractmethod
-    def forward(self, s_star: torch.Tensor, santana: SantanaLog) -> Tuple[torch.Tensor, Union[torch.Tensor, float]]:
+    def forward(self, s_star: torch.Tensor, santana: SantanaLog) -> VipassanaOutput:
         """
         Analyze the thinking process and produce confidence metrics.
 
@@ -44,7 +67,10 @@ class BaseVipassana(nn.Module, ABC):
             santana: SantanaLog containing the thinking trajectory
 
         Returns:
-            v_ctx: Context vector (Batch, context_dim) - embedding of "doubt"
-            trust_score: Confidence score (Batch, 1) tensor or scalar (0.0-1.0)
+            VipassanaOutput containing:
+                - v_ctx: Context vector (Batch, context_dim) - embedding of "doubt"
+                - trust_score: Trust score (Batch, 1)
+                - conformity_score: Conformity score (Batch, 1)
+                - confidence_score: Confidence score (Batch, 1)
         """
         pass

@@ -430,11 +430,11 @@ class TestGradientFlow:
         # Run Vipassana (trainable) - NOT in no_grad context
         # Note: s_star needs requires_grad=True to allow gradient flow through Vipassana
         s_star = s_star.detach().requires_grad_(True)
-        v_ctx, trust_score = system.vipassana(s_star, santana)
+        vipassana_output = system.vipassana(s_star, santana)
 
         # Use v_ctx for loss since trust_score is converted to scalar internally
         # and loses gradient connection
-        loss = v_ctx.sum()
+        loss = vipassana_output.v_ctx.sum()
         loss.backward()
 
         # Vipassana should have gradients (via v_ctx path)

@@ -38,7 +38,9 @@ class SystemOutput(NamedTuple):
     output: torch.Tensor  # Task output (Batch, output_dim)
     s_star: torch.Tensor  # Converged state (Batch, dim)
     v_ctx: torch.Tensor  # Context vector (Batch, context_dim)
-    trust_score: torch.Tensor  # Trust score (Batch, 1)
+    trust_score: torch.Tensor  # Trust score (Batch, 1) - OOD detection
+    conformity_score: torch.Tensor  # Conformity score (Batch, 1) - trajectory conformity
+    confidence_score: torch.Tensor  # Confidence score (Batch, 1) - comprehensive
     santana: SantanaLog  # Thinking trajectory
     severity: torch.Tensor  # Noise severity (Batch,)
     aux_output: Optional[torch.Tensor] = None  # Auxiliary head output
@@ -192,12 +194,18 @@ class SatipatthanaSystem(nn.Module):
                 x_recon = self.samatha_recon_head(s_star)
                 recon_error = ((x_recon - x) ** 2).mean(dim=tuple(range(1, x.dim()))).unsqueeze(1)
 
-            v_ctx, trust_score = self.vipassana(s_star, santana, probes=probes, recon_error=recon_error)
+            vipassana_output = self.vipassana(s_star, santana, probes=probes, recon_error=recon_error)
+            v_ctx = vipassana_output.v_ctx
+            trust_score = vipassana_output.trust_score
+            conformity_score = vipassana_output.conformity_score
+            confidence_score = vipassana_output.confidence_score
         else:
             # Return dummy context and full trust
             context_dim = self.config.vipassana.vipassana.context_dim
             v_ctx = torch.zeros(batch_size, context_dim, device=device, dtype=dtype)
             trust_score = torch.ones(batch_size, 1, device=device, dtype=dtype)
+            conformity_score = torch.ones(batch_size, 1, device=device, dtype=dtype)
+            confidence_score = torch.ones(batch_size, 1, device=device, dtype=dtype)
 
         # 3. Task Decoder (optional)
         if run_decoder:
@@ -227,6 +235,8 @@ class SatipatthanaSystem(nn.Module):
             s_star=s_star,
             v_ctx=v_ctx,
             trust_score=trust_score,
+            conformity_score=conformity_score,
+            confidence_score=confidence_score,
             santana=santana,
             severity=severity,
             aux_output=aux_output,
@@ -336,14 +346,16 @@ class SatipatthanaSystem(nn.Module):
                 recon_error = ((x_recon - x) ** 2).mean(dim=tuple(range(1, x.dim()))).unsqueeze(1)  # (Batch, 1)
 
         # Run Vipassana (trainable)
-        v_ctx, trust_score = self.vipassana(s_star, santana, probes=probes, recon_error=recon_error)
+        vipassana_output = self.vipassana(s_star, santana, probes=probes, recon_error=recon_error)
 
         return {
             "s_star": s_star,
             "santana": santana,
             "severity": severity,
-            "v_ctx": v_ctx,
-            "trust_score": trust_score,
+            "v_ctx": vipassana_output.v_ctx,
+            "trust_score": vipassana_output.trust_score,
+            "conformity_score": vipassana_output.conformity_score,
+            "confidence_score": vipassana_output.confidence_score,
         }
 
     def forward_stage3(self, x: torch.Tensor) -> Dict[str, Any]:
@@ -374,17 +386,17 @@ class SatipatthanaSystem(nn.Module):
         # Run Vipassana (frozen)
         with torch.no_grad():
             probes = self.samatha.vitakka.probes
-            v_ctx, trust_score = self.vipassana(s_star, santana, probes=probes, recon_error=recon_error)
+            vipassana_output = self.vipassana(s_star, santana, probes=probes, recon_error=recon_error)
 
         # Run TaskDecoder (trainable)
-        s_and_ctx = torch.cat([s_star, v_ctx], dim=1)
+        s_and_ctx = torch.cat([s_star, vipassana_output.v_ctx], dim=1)
         output = self.task_decoder(s_and_ctx)
 
         return {
             "output": output,
             "s_star": s_star,
-            "v_ctx": v_ctx,
-            "trust_score": trust_score,
+            "v_ctx": vipassana_output.v_ctx,
+            "trust_score": vipassana_output.trust_score,
         }
 
     def inference(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:

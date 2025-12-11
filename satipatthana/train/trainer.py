@@ -67,6 +67,8 @@ class SatipatthanaTrainer(Trainer):
         void_dataset: Optional VoidDataset for OOD data in Void Path (Stage 2).
                      Use VoidDataset from satipatthana.data to wrap any data source.
                      If None, Void Path is disabled.
+        class_weight: Optional class weights for CrossEntropyLoss (Stage 3).
+                     Tensor of shape (n_classes,) for handling imbalanced datasets.
     """
 
     def __init__(
@@ -94,6 +96,7 @@ class SatipatthanaTrainer(Trainer):
         diversity_weight: float = 0.1,
         label_key: str = "y",
         void_dataset: Optional[VoidDataset] = None,
+        class_weight: Optional[torch.Tensor] = None,
     ):
         super().__init__(
             model=model,
@@ -129,7 +132,11 @@ class SatipatthanaTrainer(Trainer):
         self.stability_loss = StabilityLoss()
         self.diversity_loss = ProbeDiversityLoss()
         self.recon_loss_fn = nn.MSELoss()
-        self.task_loss_fn = nn.CrossEntropyLoss() if task_type == "classification" else nn.MSELoss()
+        self.class_weight = class_weight
+        if task_type == "classification":
+            self.task_loss_fn = nn.CrossEntropyLoss(weight=class_weight)
+        else:
+            self.task_loss_fn = nn.MSELoss()
         self.task_type = task_type
 
         # Void Path configuration for Stage 2
@@ -315,7 +322,7 @@ class SatipatthanaTrainer(Trainer):
 
     def _compute_stage2_loss(self, model: SatipatthanaSystem, x: torch.Tensor) -> Tuple[torch.Tensor, Dict[str, Any]]:
         """
-        Stage 2: Vipassana Training.
+        Stage 2: Vipassana Training with Triple Score.
 
         Uses up to 5 noise strategies to generate contrastive pairs:
         1. Clean path (No noise) - target: 1.0
@@ -324,8 +331,7 @@ class SatipatthanaTrainer(Trainer):
         4. Mismatch path (Logical Inconsistency) - target: 0.0
         5. Void path (OOD data from void_dataset) - target: 0.0 (only if void_dataset is set)
 
-        When void_dataset=None, uses 4-way split (original behavior).
-        When void_dataset is provided, adds Void Path with samples from the dataset.
+        All three scores (trust, conformity, confidence) are trained with the same targets.
         """
         batch_size = x.size(0)
         device = x.device
@@ -343,41 +349,45 @@ class SatipatthanaTrainer(Trainer):
         x_splits = torch.split(x, id_sizes)  # Split ID data
 
         all_trust_scores = []
+        all_conformity_scores = []
+        all_confidence_scores = []
         all_targets = []
 
         # 1. Clean Path (No noise - baseline for high trust)
         if id_sizes[0] > 0:
             x_clean = x_splits[0]
             result_clean = model.forward_stage2(x_clean, noise_level=0.0, drunk_mode=False)
-            trust_clean = result_clean["trust_score"]
-            # Target: 1.0 (clean input should produce high trust)
-            target_clean = torch.ones_like(trust_clean)
+            # Target: 1.0 (clean input should produce high scores)
+            target_clean = torch.ones_like(result_clean["trust_score"])
 
-            all_trust_scores.append(trust_clean)
+            all_trust_scores.append(result_clean["trust_score"])
+            all_conformity_scores.append(result_clean["conformity_score"])
+            all_confidence_scores.append(result_clean["confidence_score"])
             all_targets.append(target_clean)
 
         # 2. Augmented Path (Environmental Ambiguity)
         if id_sizes[1] > 0:
             x_aug = x_splits[1]
             result_aug = model.forward_stage2(x_aug, noise_level=self.noise_level, drunk_mode=False)
-            trust_aug = result_aug["trust_score"]
             # Target: 1.0 - severity (higher noise = lower trust target)
-            # severity is already noise_level * max_noise_std, so don't multiply again
             severity_aug = result_aug.get("severity", torch.zeros(id_sizes[1], device=device))
             target_aug = 1.0 - severity_aug.unsqueeze(-1)
 
-            all_trust_scores.append(trust_aug)
+            all_trust_scores.append(result_aug["trust_score"])
+            all_conformity_scores.append(result_aug["conformity_score"])
+            all_confidence_scores.append(result_aug["confidence_score"])
             all_targets.append(target_aug)
 
         # 3. Drunk Path (Internal Dysfunction)
         if id_sizes[2] > 0:
             x_drunk = x_splits[2]
             result_drunk = model.forward_stage2(x_drunk, noise_level=0.0, drunk_mode=True)
-            trust_drunk = result_drunk["trust_score"]
-            # Target: 0.0 (drunk mode should produce low trust)
-            target_drunk = torch.zeros_like(trust_drunk)
+            # Target: 0.0 (drunk mode should produce low scores)
+            target_drunk = torch.zeros_like(result_drunk["trust_score"])
 
-            all_trust_scores.append(trust_drunk)
+            all_trust_scores.append(result_drunk["trust_score"])
+            all_conformity_scores.append(result_drunk["conformity_score"])
+            all_confidence_scores.append(result_drunk["confidence_score"])
             all_targets.append(target_drunk)
 
         # 4. Mismatch Path (Logical Inconsistency)
@@ -396,12 +406,14 @@ class SatipatthanaTrainer(Trainer):
             # Pass mismatched (S*, SantanaLog) to Vipassana
             # Get probes for semantic feature computation
             probes = model.samatha.vitakka.probes
-            v_ctx_mismatch, trust_mismatch = model.vipassana(s_star_shuffled, santana_normal, probes=probes)
+            vipassana_output = model.vipassana(s_star_shuffled, santana_normal, probes=probes)
 
-            # Target: 0.0 (mismatch should produce low trust)
-            target_mismatch = torch.zeros_like(trust_mismatch)
+            # Target: 0.0 (mismatch should produce low scores)
+            target_mismatch = torch.zeros_like(vipassana_output.trust_score)
 
-            all_trust_scores.append(trust_mismatch)
+            all_trust_scores.append(vipassana_output.trust_score)
+            all_conformity_scores.append(vipassana_output.conformity_score)
+            all_confidence_scores.append(vipassana_output.confidence_score)
             all_targets.append(target_mismatch)
 
         # 5. Void Path (OOD data from void_dataset)
@@ -409,22 +421,29 @@ class SatipatthanaTrainer(Trainer):
             x_void = self._sample_void_data(void_size, device)
             if x_void is not None:
                 result_void = model.forward_stage2(x_void, noise_level=0.0, drunk_mode=False)
-                trust_void = result_void["trust_score"]
-                # Target: 0.0 (OOD input should produce low trust)
-                target_void = torch.zeros_like(trust_void)
+                # Target: 0.0 (OOD input should produce low scores)
+                target_void = torch.zeros_like(result_void["trust_score"])
 
-                all_trust_scores.append(trust_void)
+                all_trust_scores.append(result_void["trust_score"])
+                all_conformity_scores.append(result_void["conformity_score"])
+                all_confidence_scores.append(result_void["confidence_score"])
                 all_targets.append(target_void)
 
         # Concatenate all results
         trust_scores = torch.cat(all_trust_scores, dim=0)
+        conformity_scores = torch.cat(all_conformity_scores, dim=0)
+        confidence_scores = torch.cat(all_confidence_scores, dim=0)
         targets = torch.cat(all_targets, dim=0)
 
-        # Compute BCE loss
-        loss, loss_components = self.vipassana_objective.compute_loss(trust_scores, targets)
+        # Compute Triple Score BCE loss
+        loss, loss_components = self.vipassana_objective.compute_loss(
+            trust_scores, targets, conformity_scores, confidence_scores
+        )
 
         outputs = {
             "trust_scores": trust_scores,
+            "conformity_scores": conformity_scores,
+            "confidence_scores": confidence_scores,
             "targets": targets,
             **loss_components,
         }
