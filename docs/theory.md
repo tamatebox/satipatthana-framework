@@ -79,6 +79,14 @@ Deep Equilibrium Model (DEQ) はゼロまたはランダム初期化から始ま
 
 これは事後的な較正ではなく — アーキテクチャに組み込まれた自己認識である。
 
+**Triple Score System:** Vipassanaは3つの相補的なスコアを出力する：
+
+* **trust_score** — static metricsのみに基づく。OOD入力を検出。GRU勾配を受けない。
+* **conformity_score** — dynamic context（GRU出力）のみに基づく。プロセス異常を検出。GRU勾配を提供。
+* **confidence_score** — 両方に基づく。包括的な評価。GRU勾配を提供。
+
+この分離により、GRU軌跡エンコーダが学習中に適切な勾配を受けながら、純粋なOOD検出能力も維持される。
+
 ### 2.4. なぜ Grounding Metrics か？
 
 重大な問題がある：**OOD（分布外）入力は既知のアトラクタに収束してしまう。** Vicaraプロセスは未知の入力を既知の概念領域に「引き込む」ため、最終状態 $S^*$ のみを見ると、分布内サンプルと区別がつかなくなる。
@@ -122,7 +130,7 @@ Satipatthana はこれらを操作化する：
 
 * **理解** = $||S_{t+1} - S_t|| < \epsilon$
 * **混乱** = 軌跡における高い分散
-* **洞察** = Vipassana の信頼スコア $\alpha$
+* **洞察** = Vipassana の Triple Score（trust, conformity, confidence）
 
 ---
 
@@ -221,7 +229,7 @@ Satipatthana は同時に以下の性質を持つ：
 | 安定性 | 保証なし | 数学的に保証 |
 | 説明可能性 | 注意ヒートマップ | 真正な軌跡 |
 | 初期化 | 位置エンコーディング | 意味的（Vitakka） |
-| **自己認識** | **なし** | **Vipassana** |
+| **自己認識** | **なし** | **Vipassana (Triple Score)** |
 
 ### 6.2. vs. Deep Equilibrium Model (DEQ)
 
@@ -307,10 +315,11 @@ Satipatthana は LLM の **幻覚検出器** として機能でき、根本的�
 
 #### なぜこれが機能するか
 
-従来の LLM 確信度（softmax 確率）は **未較正** である — モデルはしばしば自信を持って間違える。Satipatthana の信頼スコアは出力ではなく **過程** に基づく：
+従来の LLM 確信度（softmax 確率）は **未較正** である — モデルはしばしば自信を持って間違える。Satipatthana の Triple Score は出力ではなく **過程** に基づく：
 
-* 滑らかな収束 → 高信頼
-* 振動または遅い収束 → 低信頼
+* 滑らかな収束 → 高い conformity_score と confidence_score
+* 振動または遅い収束 → 低い conformity_score
+* OOD入力（既知の概念から遠い） → 低い trust_score
 * 状態と軌跡の不一致 → 検出される矛盾
 
 これは事後的な較正ではなく、アーキテクチャ的に保証されたメタ認知である。

@@ -47,11 +47,16 @@ deactivate Trainer
 == Stage 2: Vipassana Training (Meta-Cognition) ==
 note over Trainer, TaskDecoder
 Goal: Learn to distinguish valid/invalid trajectories.
-Loss: Binary Cross Entropy (Contrastive) | Freeze: Adapter, Samatha, ReconHeads, TaskDecoder
+Loss: Triple Score BCE (trust + conformity + confidence) | Freeze: Adapter, Samatha, ReconHeads, TaskDecoder
+Triple Score System:
+ - trust_score: metrics only (OOD detection, no GRU gradient)
+ - conformity_score: dynamic_context only (GRU gradient path)
+ - confidence_score: both (comprehensive assessment)
 Noise Strategy:
  - Augmenter: Input noise (x -> x_aug)
  - Samatha Drunk Mode: Internal dysfunction (high dropout, etc.)
  - Trainer Mismatch: Logical inconsistency (shuffled logs)
+ - Void Path: OOD samples (VoidDataset)
 end note
 User -> Trainer: train(stage="2_vipassana")
 activate Trainer

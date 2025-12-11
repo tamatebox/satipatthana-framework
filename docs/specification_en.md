@@ -130,12 +130,14 @@ flowchart TB
 **Role:** Meta-cognition. Monitors whether Samatha's thinking process (log) was sound.
 
 **Input:** `S*` (Batch, Dim) + `SantanaLog`
-**Output:**
+**Output:** `VipassanaOutput` containing:
 
 * `V_ctx` (Batch, context_dim): Hint information for decoder (embedding of "doubt")
-* `α` (Batch, 1): Trust score (0.0–1.0)
+* `trust_score` (Batch, 1): Trust score from static metrics (OOD detection)
+* `conformity_score` (Batch, 1): Conformity score from dynamic context (pattern conformity)
+* `confidence_score` (Batch, 1): Confidence score from both (comprehensive assessment)
 
-**Structure:** `StandardVipassana` (LogEncoder + ConfidenceMonitor)
+**Structure:** `StandardVipassana` (GRU Encoder + Grounding Metrics + Triple Score Heads)
 
 ### 3.5. Engine 3: ConditionalDecoder
 
@@ -176,7 +178,7 @@ Stage 1's `AuxHead` and Stage 3's `ConditionalDecoder` are **physically separate
 | **Vitakka** | $z$ (Batch, $d$) | $(S_0, metadata)$ | `BaseVitakka` |
 | **Vicara** | $S_t$ (Batch, $d$), context | $S_{t+1}$ (Batch, $d$) | `BaseVicara` |
 | **Sati** | $S_t$, $\mathcal{T}$ | $(should\_stop, info)$ | `BaseSati` |
-| **Vipassana** | $S^*$, $\mathcal{T}$ | $(V_{ctx}, \alpha)$ | `BaseVipassana` |
+| **Vipassana** | $S^*$, $\mathcal{T}$ | `VipassanaOutput` | `BaseVipassana` |
 | **ConditionalDecoder** | $S^* \oplus V_{ctx}$ (Batch, $d+c$) | $Y$ (Batch, output\_dim) | `BaseDecoder` |
 
 ### 4.1. Adapter
@@ -240,16 +242,20 @@ $$S_{t+1} = (1 - \beta) S_t + \beta \Phi(S_t)$$
 
 ### 4.6. Vipassana
 
-**Function:** Meta-cognition module that monitors Samatha's thinking log and evaluates logical consistency and confidence. Uses a **dual-branch architecture** (GRU + Grounding Metrics) for comprehensive analysis.
+**Function:** Meta-cognition module that monitors Samatha's thinking log and evaluates logical consistency and confidence. Uses a **dual-branch architecture** (GRU + Grounding Metrics) for comprehensive analysis with **Triple Score System**.
 
 * **Interface:** `BaseVipassana`
-* **Implementation:** `StandardVipassana` (GRU-based with 8 Grounding Metrics)
+* **Implementation:** `StandardVipassana` (GRU-based with 8 Grounding Metrics + Triple Score)
 * **Input:**
   * Converged state $S^*$ (Batch, $d$)
   * Trajectory $\mathcal{T}$ (SantanaLog, contains $S_0$ and per-sample `convergence_steps`)
   * Probe vectors $\mathbf{P}$ (optional, $K \times d$)
   * Reconstruction error (optional, Batch, 1)
-* **Output:** Context vector $V_{ctx}$ (Batch, $c$), trust score $\alpha$ (Batch, 1)
+* **Output:** `VipassanaOutput` containing:
+  * Context vector $V_{ctx}$ (Batch, $c$)
+  * `trust_score` (Batch, 1): From metrics only (OOD detection, no GRU gradient)
+  * `conformity_score` (Batch, 1): From dynamic_context only (GRU gradient path)
+  * `confidence_score` (Batch, 1): From both (comprehensive assessment)
 
 **Architecture:**
 
@@ -261,7 +267,7 @@ flowchart TB
 
     subgraph Branch1["Branch 1: Dynamic"]
         gru["GRU Encoder<br/>pack_padded_sequence"]
-        hdyn["(Batch, gru_hidden_dim)"]
+        hdyn["dynamic_context<br/>(Batch, gru_hidden_dim)"]
     end
 
     subgraph Branch2["Branch 2: Static"]
@@ -277,9 +283,28 @@ flowchart TB
     hdyn --> concat["Concat"]
     hstatic --> concat
     concat --> vctx["V_ctx (Batch, context_dim)"]
-    metrics --> trust["Trust Head"]
-    trust --> alpha["α (Batch, 1)"]
+
+    subgraph TripleScore["Triple Score Heads"]
+        metrics --> trust["Trust Head<br/>(metrics only)"]
+        hdyn --> conformity["Conformity Head<br/>(dynamic only)"]
+        hdyn --> confidence["Confidence Head<br/>(both)"]
+        metrics --> confidence
+    end
+
+    trust --> alpha_trust["trust_score"]
+    conformity --> alpha_conf["conformity_score"]
+    confidence --> alpha_confid["confidence_score"]
 ```
+
+**Triple Score System:**
+
+| Score | Input | Gradient to GRU | Purpose |
+|:---|:---|:---|:---|
+| `trust_score` | metrics only | ✗ | OOD detection (result-based) |
+| `conformity_score` | dynamic_context only | ✓ | Pattern conformity (process-based) |
+| `confidence_score` | both | ✓ | Comprehensive assessment |
+
+This design ensures the GRU trajectory encoder receives gradients during training via `conformity_score` and `confidence_score`, while `trust_score` provides pure OOD detection without trajectory bias.
 
 **8 Grounding Metrics:**
 
@@ -342,11 +367,13 @@ Where:
 * $\delta = \|S^* - S_0\|$ = drift magnitude (**Grounding**)
 * $r$ = reconstruction error (**Grounding**)
 
-**Fusion & Trust Score:**
+**Fusion & Triple Scores:**
 $$V_{ctx} = [h_{dyn}; h_{static}]$$
-$$\alpha = \sigma(\text{TrustHead}(\mathbf{m})) \in [0, 1]$$
+$$\alpha_{trust} = \sigma(\text{TrustHead}(\mathbf{m})) \in [0, 1]$$
+$$\alpha_{conformity} = \sigma(\text{ConformityHead}(h_{dyn})) \in [0, 1]$$
+$$\alpha_{confidence} = \sigma(\text{ConfidenceHead}([h_{dyn}; \mathbf{m}])) \in [0, 1]$$
 
-**Targets:**
+**Targets (same for all three scores):**
 
 * Clean: $\hat{\alpha} = 1.0$
 * Augmented: $\hat{\alpha} = 1.0 - \text{severity}$
@@ -363,8 +390,9 @@ Objective function switches per training stage.
 * **Stage 1 (Samatha Training):** Stability + Reconstruction + (Optional) Label Guidance
     $$\mathcal{L}_1 = ||S_T - S_{T-1}||^2 + \lambda_r \mathcal{L}_{recon} + \lambda_g \mathcal{L}_{task}(y, \text{AuxHead}(S^*))$$
 
-* **Stage 2 (Vipassana Training):** Binary Cross Entropy (Contrastive)
-    $$\mathcal{L}_2 = \text{BCE}(\alpha, \hat{\alpha})$$
+* **Stage 2 (Vipassana Training):** Triple Score BCE
+    $$\mathcal{L}_2 = \text{BCE}(\alpha_{trust}, \hat{\alpha}) + \text{BCE}(\alpha_{conformity}, \hat{\alpha}) + \text{BCE}(\alpha_{confidence}, \hat{\alpha})$$
+    Note: `conformity_score` and `confidence_score` provide gradients to the GRU trajectory encoder.
 
 * **Stage 3 (Decoder Fine-tuning):** Task Specific Loss
     $$\mathcal{L}_3 = \mathcal{L}_{task}(y, \text{Decoder}(S^*, V_{ctx}))$$
@@ -392,14 +420,18 @@ class SantanaLog:
 ### 6.2. SystemOutput
 
 ```python
-@dataclass
-class SystemOutput:
-    output: Tensor        # Decoded result
-    s_star: Tensor        # Converged latent state
-    v_ctx: Tensor         # Vipassana context vector
-    trust_score: Tensor   # Trust score (0.0–1.0)
-    santana: SantanaLog   # Thinking trajectory
-    severity: Tensor      # Noise intensity
+class SystemOutput(NamedTuple):
+    output: Tensor            # Decoded result
+    s_star: Tensor            # Converged latent state
+    v_ctx: Tensor             # Vipassana context vector
+    trust_score: Tensor       # Trust score (0.0–1.0) - OOD detection
+    conformity_score: Tensor  # Conformity score (0.0–1.0) - trajectory conformity
+    confidence_score: Tensor  # Confidence score (0.0–1.0) - comprehensive
+    santana: SantanaLog       # Thinking trajectory
+    severity: Tensor          # Noise intensity
+    aux_output: Optional[Tensor] = None      # Stage 1 AuxHead output
+    recon_adapter: Optional[Tensor] = None   # Stage 0 reconstruction
+    recon_samatha: Optional[Tensor] = None   # Stage 1 reconstruction
 ```
 
 -----
@@ -418,12 +450,20 @@ def inference(x: Tensor) -> SystemOutput:
     s_star, santana, severity = samatha_engine(x, run_augmenter=False)
 
     # Phase 2: Vipassana (Introspection)
-    v_ctx, trust_score = vipassana_engine(s_star, santana)
+    vipassana_output = vipassana_engine(s_star, santana)
+    v_ctx = vipassana_output.v_ctx
+    trust_score = vipassana_output.trust_score          # OOD detection
+    conformity_score = vipassana_output.conformity_score  # Trajectory conformity
+    confidence_score = vipassana_output.confidence_score  # Comprehensive
 
     # Phase 3: Decode (Expression)
     output = conditional_decoder(concat(s_star, v_ctx))
 
-    return SystemOutput(output, s_star, v_ctx, trust_score, santana, severity)
+    return SystemOutput(
+        output, s_star, v_ctx,
+        trust_score, conformity_score, confidence_score,
+        santana, severity
+    )
 ```
 
 ### 7.3. SamathaEngine Internal Flow
@@ -468,7 +508,7 @@ def samatha_forward(x, noise_level=0.0, run_augmenter=True):
 |:---|:---|:---|:---|:---|
 | **0** | Adapter Pre-training | Adapter, adapter_recon_head | All others | Reconstruction Loss |
 | **1** | Samatha Training | Adapter, Vitakka, Vicara, Sati, (samatha_recon_head, AuxHead) | Vipassana, TaskDecoder | Stability + Recon + (Guidance) |
-| **2** | Vipassana Training | Vipassana | All others | BCE (Contrastive) |
+| **2** | Vipassana Training | Vipassana | All others | Triple Score BCE |
 | **3** | Decoder Fine-tuning | TaskDecoder | All others | Task Specific Loss |
 
 ### 8.2. Iteration Strategy

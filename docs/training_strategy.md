@@ -14,7 +14,7 @@ Satipatthana's three-engine architecture (SamathaEngine, VipassanaEngine, Condit
 | :--- | :--- | :--- | :--- | :--- |
 | **0** | Adapter Pre-training | Adapter, AdapterReconHead | All others | Reconstruction Loss |
 | **1** | Samatha Training | Adapter, Vitakka, Vicara, Sati, SamathaReconHead, (AuxHead) | Vipassana, ConditionalDecoder | Stability + Recon + (Guidance) |
-| **2** | Vipassana Training | Vipassana | All others | BCE (Contrastive) |
+| **2** | Vipassana Training | Vipassana | All others | Triple Score BCE |
 | **3** | Decoder Fine-tuning | ConditionalDecoder | All others | Task Specific Loss |
 
 -----
@@ -63,10 +63,21 @@ $$\mathcal{L}_1 = ||S_T - S_{T-1}||^2 + \lambda_r \mathcal{L}_{recon}(X, \hat{X}
 
 ![Stage 2](diagrams/images/v4_sequence_diagram_training_stage2.png)
 
-**Goal:** Train meta-cognition to recognize "good" vs "bad" thinking processes.
+**Goal:** Train meta-cognition to recognize "good" vs "bad" thinking processes using Triple Score System.
 
-* **Trainable:** Vipassana (GRU Encoder + 8 Grounding Metrics + Trust Head)
-* **Objective:** $\mathcal{L}_2 = \text{BCE}(\alpha, \hat{\alpha})$
+* **Trainable:** Vipassana (GRU Encoder + 8 Grounding Metrics + Triple Score Heads)
+* **Objective:** Triple Score BCE
+$$\mathcal{L}_2 = \text{BCE}(\text{trust}, \hat{\alpha}) + \text{BCE}(\text{conformity}, \hat{\alpha}) + \text{BCE}(\text{confidence}, \hat{\alpha})$$
+
+**Triple Score System:**
+
+| Score | Input | GRU Gradient | Purpose |
+|:---|:---|:---|:---|
+| `trust_score` | h_static (metrics) | ✗ | Pure OOD detection |
+| `conformity_score` | h_dynamic (GRU) | ✓ | Trajectory process anomaly |
+| `confidence_score` | h_static + h_dynamic | ✓ | Comprehensive assessment |
+
+This separation ensures the GRU encoder receives proper gradients during training while maintaining pure OOD detection capability.
 
 #### Noise Generation Strategies
 
@@ -132,6 +143,61 @@ Four data generation strategies teach Vipassana to detect anomalous thinking:
 | 3 | ConditionalDecoder with Softmax output | Task-specific head |
 
 **Inference:** Use trust score to filter low-confidence predictions.
+
+#### Two-Stage Inference Strategy
+
+For imbalanced classification (e.g., fraud detection), a **two-stage inference strategy** is recommended:
+
+```text
+All samples
+    ↓ Stage 1: Trust Score Filter
+    ↓ (Trust Score < threshold → "flagged")
+Flagged samples (low trust)
+    ↓ Stage 2: Decoder Classification
+Final prediction: Class label
+```
+
+**Benefits:**
+
+1. **Efficiency:** 99%+ samples auto-processed, only "flagged" samples go through detailed classification
+2. **Imbalance mitigation:** Fraud ratio increases after filtering
+3. **Explainability:** Trust Score explains why a sample is flagged
+
+**Why Full-Data Training Works:**
+
+A common question: "Should the Decoder be trained only on low-trust samples?"
+
+The answer is **no**. ConditionalDecoder receives `S* + V_ctx` as input. `V_ctx` (Vipassana Context) contains the "embedding of doubt", so the Decoder can learn:
+
+* When `V_ctx` is clear (high trust) → likely Normal
+* When `V_ctx` is murky (low trust) → focus on subtle differences in `S*`
+
+This means the two-stage approach is an **inference strategy**, not a training strategy. The Decoder learns conditional behavior through `V_ctx` without requiring filtered training data.
+
+**Threshold Selection (F2 Score):**
+
+For fraud detection, use **F2 score** (Recall-weighted) instead of F1. This prioritizes catching more frauds over precision:
+
+```python
+from sklearn.metrics import fbeta_score
+
+# Find threshold that maximizes F2 score on train data
+# F2 weighs Recall 2x more than Precision - better for fraud detection
+best_f2, best_threshold = 0, 0.5
+for th in np.linspace(0.1, 0.95, 50):
+    preds = (train_trust_scores < th).astype(int)
+    f2 = fbeta_score(train_labels, preds, beta=2)
+    if f2 > best_f2:
+        best_f2, best_threshold = f2, th
+```
+
+#### Advanced: Trust-Weighted Loss (Optional)
+
+For further optimization, apply trust-based weighting during Stage 3:
+
+$$\mathcal{L}_{decoder} = (1 - \alpha)^\gamma \cdot \mathcal{L}_{CE}(y, \hat{y})$$
+
+This makes the Decoder focus on "hard" samples (low trust) while still learning from all data.
 
 ### Case 3: Time Series Forecasting
 

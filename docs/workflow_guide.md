@@ -40,7 +40,7 @@ Raw Input (X)
 |:---|:---|:---|:---|
 | **0** | Adapter Pre-training | Adapter, AdapterReconHead | Reconstruction Loss |
 | **1** | Samatha Training | Adapter, Vitakka, Vicara, Sati, (SamathaReconHead, AuxHead) | Stability + Recon + (Guidance) |
-| **2** | Vipassana Training | Vipassana | BCE (Contrastive) |
+| **2** | Vipassana Training | Vipassana | Triple Score BCE |
 | **3** | Decoder Fine-tuning | ConditionalDecoder | Task Specific Loss |
 
 ---
@@ -204,14 +204,25 @@ results = trainer.run_curriculum(
 
 #### Stage 2: Vipassana Training
 
-**Goal:** Train meta-cognition to recognize "good" vs "bad" thinking.
+**Goal:** Train meta-cognition to recognize "good" vs "bad" thinking using Triple Score System.
 
-* **Trainable:** Vipassana (LogEncoder + ConfidenceMonitor)
-* **Objective:** $\mathcal{L}_2 = \text{BCE}(\alpha, \hat{\alpha})$
-* **Data Generation:** Three strategies are used:
+* **Trainable:** Vipassana (GRU Encoder + 8 Grounding Metrics + Triple Score Heads)
+* **Objective:** Triple Score BCE
+$$\mathcal{L}_2 = \text{BCE}(\text{trust}, \hat{\alpha}) + \text{BCE}(\text{conformity}, \hat{\alpha}) + \text{BCE}(\text{confidence}, \hat{\alpha})$$
+
+**Triple Score System:**
+
+| Score | Input | GRU Gradient | Purpose |
+|:---|:---|:---|:---|
+| `trust_score` | h_static (metrics) | ✗ | Pure OOD detection |
+| `conformity_score` | h_dynamic (GRU) | ✓ | Trajectory anomaly detection |
+| `confidence_score` | h_static + h_dynamic | ✓ | Comprehensive assessment |
+
+* **Data Generation:** Four strategies are used:
     1. **Augmented Path:** Add noise to input → Target: `1.0 - severity`
     2. **Drunk Path:** Perturb SamathaEngine internals → Target: `0.0`
     3. **Mismatch Path:** Shuffle S\* and SantanaLog → Target: `0.0`
+    4. **Void Path:** OOD samples (VoidDataset) → Target: `0.0`
 
 #### Stage 3: Decoder Fine-tuning
 

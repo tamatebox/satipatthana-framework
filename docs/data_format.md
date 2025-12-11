@@ -68,18 +68,21 @@ def __getitem__(self, idx):
 ### 3.1. Recommended Preprocessing
 
 **Standard Normalization (Recommended):**
+
 ```python
 # Mean=0, Std=1
 x_normalized = (x - x.mean()) / x.std()
 ```
 
 **Min-Max Normalization:**
+
 ```python
 # Range [0, 1]
 x_normalized = (x - x.min()) / (x.max() - x.min())
 ```
 
 **Domain-Specific:**
+
 ```python
 # Image: ImageNet normalization
 transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
@@ -135,6 +138,7 @@ void_dataset = FilteredNoiseVoid(
 ### 4.3. Static vs Dynamic Mode
 
 **Static Mode:** Wrap existing dataset
+
 ```python
 # From existing dataset
 ood_images = torchvision.datasets.CIFAR100(...)
@@ -146,6 +150,7 @@ void_dataset = VoidDataset(ood_tensors)
 ```
 
 **Dynamic Mode:** Generate on-the-fly
+
 ```python
 # Lambda generator (requires length)
 void_dataset = VoidDataset(
@@ -178,12 +183,14 @@ void_dataset = GaussianNoiseVoid(shape=(784,), length=10000)
 ### 5.3. Stage 2 (Vipassana Training)
 
 **Train Dataset:**
+
 | Field | Required | Notes |
 |-------|----------|-------|
 | `"x"` | Yes | Clean input for contrastive learning |
 | `"y"` | No | Labels not used |
 
 **VoidDataset:**
+
 | Field | Required | Notes |
 |-------|----------|-------|
 | `"x"` | Yes | OOD samples (target: trust=0.0) |

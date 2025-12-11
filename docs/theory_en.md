@@ -79,6 +79,14 @@ Even stable convergence can be wrong. The system needs to know when to trust its
 
 This is not post-hoc calibration — it's architectural self-awareness.
 
+**Triple Score System:** Vipassana outputs three complementary scores:
+
+* **trust_score** — Based on static metrics only. Detects OOD inputs.
+* **conformity_score** — Based on trajectory encoding (GRU). Detects process anomalies.
+* **confidence_score** — Based on both. Comprehensive assessment.
+
+This separation ensures the GRU trajectory encoder receives proper gradients during training, while maintaining pure OOD detection capability.
+
 ### 2.4. Why Grounding Metrics?
 
 A critical problem: **OOD (Out-of-Distribution) inputs converge to familiar attractors.** The Vicara process "pulls" unfamiliar inputs toward known concept regions, making them indistinguishable from in-distribution samples when only examining the final state $S^*$.
@@ -122,7 +130,7 @@ Satipatthana operationalizes these:
 
 * **Understanding** = $||S_{t+1} - S_t|| < \epsilon$
 * **Confusion** = high variance in trajectory
-* **Insight** = Vipassana's trust score $\alpha$
+* **Insight** = Vipassana's triple scores (trust, conformity, confidence)
 
 ---
 
@@ -217,7 +225,7 @@ Satipatthana is simultaneously:
 | Stability | No guarantee | Mathematically guaranteed |
 | Explainability | Attention heatmaps | Authentic trajectory |
 | Initialization | Position encoding | Semantic (Vitakka) |
-| **Self-awareness** | **None** | **Vipassana** |
+| **Self-awareness** | **None** | **Vipassana (Triple Score)** |
 
 ### 6.2. vs. Deep Equilibrium Models (DEQ)
 
@@ -303,10 +311,11 @@ The two systems are **complementary**: LLM explores the possibility space; Satip
 
 #### Why This Works
 
-Traditional LLM confidence (softmax probabilities) is **uncalibrated** — models are often confidently wrong. Satipatthana's trust score is based on **process**, not output:
+Traditional LLM confidence (softmax probabilities) is **uncalibrated** — models are often confidently wrong. Satipatthana's triple scores are based on **process**, not output:
 
-* Smooth convergence → high trust
-* Oscillation or slow convergence → low trust
+* Smooth convergence → high conformity_score and confidence_score
+* Oscillation or slow convergence → low conformity_score
+* OOD input (far from known concepts) → low trust_score
 * Mismatch between state and trajectory → detected inconsistency
 
 This is architecturally guaranteed meta-cognition, not post-hoc calibration.

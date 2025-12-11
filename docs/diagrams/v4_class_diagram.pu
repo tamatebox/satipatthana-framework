@@ -75,7 +75,7 @@ package "satipatthana" {
           Returns vary by stage:
           - Inference: (y_pred: Tensor, trust_score: float)
           - Stage1 (Samatha Train): (s_star, santana, x_recon, y_aux)
-          - Stage2 (Vipassana Train): (v_ctx: Tensor, trust_score: float) vs Targets
+          - Stage2 (Vipassana Train): VipassanaOutput vs Targets (Triple Score BCE)
         end note
 
         class SamathaEngine {
@@ -104,13 +104,15 @@ package "satipatthana" {
         class VipassanaEngine {
             + config: VipassanaConfig
             + monitor: BaseVipassana
-            + forward(s_star, santana, probes, recon_error) : Tuple
+            + forward(s_star, santana, probes, recon_error) : VipassanaOutput
         }
         note right of VipassanaEngine::forward
           Input: (s_star, santana, probes=None, recon_error=None)
-          Returns: (v_ctx: Tensor, trust_score: Tensor)
+          Returns: VipassanaOutput containing:
           - v_ctx: Context vector (embedding of "doubt/ambiguity")
-          - trust_score: Confidence score (Batch, 1) in [0.0, 1.0]
+          - trust_score: From metrics only (OOD detection)
+          - conformity_score: From dynamic_context (GRU gradient path)
+          - confidence_score: From both (comprehensive)
           Uses Grounding Metrics (s0_min_dist, drift, recon_error)
           to detect OOD inputs that converge to familiar regions.
         end note
@@ -173,21 +175,34 @@ package "satipatthana" {
 
         package "vipassana" {
             abstract class BaseVipassana {
-                + {abstract} forward(s_star, santana, probes, recon_error) : Tuple
+                + {abstract} forward(s_star, santana, probes, recon_error) : VipassanaOutput
             }
             class StandardVipassana {
                 + trajectory_gru: GRU
                 + metric_projector: MLP
                 + trust_head: MLP
+                + conformity_head: MLP
+                + confidence_head: MLP
                 --
                 + _encode_trajectory(santana) : Tensor
                 + _compile_metrics(s_star, santana, probes, recon_error) : Tensor
             }
+            class VipassanaOutput {
+                + v_ctx: Tensor
+                + trust_score: Tensor
+                + conformity_score: Tensor
+                + confidence_score: Tensor
+            }
             note bottom of StandardVipassana
               === Dual-Branch Architecture ===
-              Branch 1 (Dynamic): GRU encodes trajectory
-              Branch 2 (Static): 8 Grounding Metrics → MLP
-              V_ctx = Concat(dynamic, static)
+              Branch 1 (Dynamic): GRU encodes trajectory → dynamic_context
+              Branch 2 (Static): 8 Grounding Metrics → MLP → metrics
+              V_ctx = Concat(dynamic_context, metrics)
+
+              === Triple Score System ===
+              - trust_score: metrics only (static, OOD detection)
+              - conformity_score: dynamic_context only (GRU gradient path)
+              - confidence_score: both (comprehensive)
 
               === 8 Grounding Metrics ===
               1. velocity: ||S_T - S_{T-1}||
@@ -301,6 +316,7 @@ VipassanaEngine o-- BaseVipassana
 
 BaseVicara o-- BaseRefiner
 StandardVipassana --|> BaseVipassana
+StandardVipassana ..> VipassanaOutput : returns
 ConditionalDecoder --|> BaseDecoder
 SimpleReconstructionDecoder --|> BaseDecoder
 SimpleAuxHead --|> BaseDecoder

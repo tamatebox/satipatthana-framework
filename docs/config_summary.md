@@ -171,7 +171,7 @@ VipassanaEngine（内省エンジン）の構成を定義します。
 
 ## 9. Vipassana設定 (`satipatthana/configs/vipassana.py`)
 
-メタ認知モジュールの動作を定義します。GRU + 8 Grounding Metrics の dual-branch アーキテクチャを採用。
+メタ認知モジュールの動作を定義します。GRU + 8 Grounding Metrics の dual-branch アーキテクチャと **Triple Score System** を採用。
 
 ### `StandardVipassanaConfig`
 
@@ -182,6 +182,9 @@ VipassanaEngine（内省エンジン）の構成を定義します。
 | **`metric_proj_dim`** | `32` | いいえ | 8 Grounding Metricsの射影次元 (Static Context) |
 | **`max_steps`** | `10` | いいえ | 最大ステップ数（convergence_stepsの正規化用） |
 | **`context_dim`** | 自動計算 | いいえ | `gru_hidden_dim + metric_proj_dim` で自動計算 |
+| **`trust_weight`** | `1.0` | いいえ | Stage 2 損失における `trust_score` の重み |
+| **`conformity_weight`** | `1.0` | いいえ | Stage 2 損失における `conformity_score` の重み |
+| **`confidence_weight`** | `1.0` | いいえ | Stage 2 損失における `confidence_score` の重み |
 
 **注意:** `context_dim` は `__post_init__` で自動計算されるため、明示的に指定する必要はありません。
 

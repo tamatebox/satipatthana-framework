@@ -130,12 +130,14 @@ flowchart TB
 **役割:** メタ認知。Samathaの思考プロセス（ログ）が健全だったか監視する。
 
 **入力:** `S*` (Batch, Dim) + `SantanaLog`
-**出力:**
+**出力:** `VipassanaOutput` dataclass:
 
-* `V_ctx` (Batch, context_dim): デコーダーへのヒント情報（「迷い」の埋め込み表現）
-* `α` (Batch, 1): 信頼度スコア (0.0〜1.0)
+* `v_ctx` (Batch, context_dim): デコーダーへのヒント情報（「迷い」の埋め込み表現）
+* `trust_score` (Batch, 1): OOD検出スコア（static metricsのみ）
+* `conformity_score` (Batch, 1): 軌跡整合性スコア（dynamic contextのみ）
+* `confidence_score` (Batch, 1): 総合信頼度スコア（両方を使用）
 
-**構成:** `StandardVipassana` (LogEncoder + ConfidenceMonitor)
+**構成:** `StandardVipassana` (GRU + Grounding Metrics + Triple Score Heads)
 
 ### 3.5. Engine 3: ConditionalDecoder
 
@@ -176,7 +178,7 @@ Stage 1の `AuxHead` と Stage 3の `ConditionalDecoder` は**入力次元が異
 | **Vitakka** | $z$ (Batch, $d$) | $(S_0, metadata)$ | `BaseVitakka` |
 | **Vicara** | $S_t$ (Batch, $d$), context | $S_{t+1}$ (Batch, $d$) | `BaseVicara` |
 | **Sati** | $S_t$, $\mathcal{T}$ | $(should\_stop, info)$ | `BaseSati` |
-| **Vipassana** | $S^*$, $\mathcal{T}$ | $(V_{ctx}, \alpha)$ | `BaseVipassana` |
+| **Vipassana** | $S^*$, $\mathcal{T}$ | `VipassanaOutput` (v_ctx, trust, conformity, confidence) | `BaseVipassana` |
 | **ConditionalDecoder** | $S^* \oplus V_{ctx}$ (Batch, $d+c$) | $Y$ (Batch, output\_dim) | `BaseDecoder` |
 
 ### 4.1. Adapter
@@ -240,16 +242,30 @@ $$S_{t+1} = (1 - \beta) S_t + \beta \Phi(S_t)$$
 
 ### 4.6. Vipassana
 
-**機能:** Samathaの思考ログを監視し、論理的整合性と信頼度を評価するメタ認知モジュール。**dual-branch アーキテクチャ**（GRU + Grounding Metrics）による包括的な分析を行う。
+**機能:** Samathaの思考ログを監視し、論理的整合性と信頼度を評価するメタ認知モジュール。**dual-branch アーキテクチャ**（GRU + Grounding Metrics）による包括的な分析と **Triple Score System** を使用。
 
 * **Interface:** `BaseVipassana`
-* **実装:** `StandardVipassana`（GRUベース、8 Grounding Metrics）
+* **実装:** `StandardVipassana`（GRUベース、8 Grounding Metrics、Triple Score）
 * **入力:**
   * 収束状態 $S^*$ (Batch, $d$)
   * 軌跡 $\mathcal{T}$ (SantanaLog、$S_0$ とサンプル毎の `convergence_steps` を含む)
   * プローブベクトル $\mathbf{P}$ (オプション、$K \times d$)
   * 再構成誤差 (オプション、Batch, 1)
-* **出力:** 文脈ベクトル $V_{ctx}$ (Batch, $c$)、信頼度スコア $\alpha$ (Batch, 1)
+* **出力:** `VipassanaOutput` dataclass:
+  * `v_ctx` (Batch, $c$): 文脈ベクトル（dynamic + static）
+  * `trust_score` (Batch, 1): OOD検出スコア（metricsのみ、GRU勾配なし）
+  * `conformity_score` (Batch, 1): 軌跡整合性スコア（dynamic contextのみ、GRU勾配あり）
+  * `confidence_score` (Batch, 1): 総合信頼度スコア（両方、GRU勾配あり）
+
+**Triple Score System:**
+
+| スコア | 入力 | GRU勾配 | 目的 |
+|:---|:---|:---|:---|
+| `trust_score` | static metrics (h_static) | ✗ | 純粋なOOD検出 |
+| `conformity_score` | dynamic context (h_dynamic) | ✓ | 軌跡プロセス異常検出 |
+| `confidence_score` | h_static + h_dynamic | ✓ | 総合的な信頼度評価 |
+
+この分離により、GRUが適切な勾配を受けながら、純粋なOOD検出能力も維持される。
 
 **アーキテクチャ:**
 
@@ -261,12 +277,18 @@ flowchart TB
 
     subgraph Branch1["Branch 1: Dynamic"]
         gru["GRU Encoder<br/>pack_padded_sequence"]
-        hdyn["(Batch, gru_hidden_dim)"]
+        hdyn["h_dynamic (Batch, gru_hidden_dim)"]
     end
 
     subgraph Branch2["Branch 2: Static"]
         metrics["8 Grounding Metrics<br/>_compile_metrics()"]
-        hstatic["(Batch, metric_proj_dim)"]
+        hstatic["h_static (Batch, metric_proj_dim)"]
+    end
+
+    subgraph TripleScore["Triple Score System"]
+        trust["Trust Head<br/>(h_static only)"]
+        conform["Conformity Head<br/>(h_dynamic only)"]
+        conf["Confidence Head<br/>(h_static + h_dynamic)"]
     end
 
     santana --> gru
@@ -277,8 +299,14 @@ flowchart TB
     hdyn --> concat["Concat"]
     hstatic --> concat
     concat --> vctx["V_ctx (Batch, context_dim)"]
-    metrics --> trust["Trust Head"]
-    trust --> alpha["α (Batch, 1)"]
+
+    hstatic --> trust
+    hdyn --> conform
+    concat --> conf
+
+    trust --> ts["trust_score"]
+    conform --> cs["conformity_score"]
+    conf --> confs["confidence_score"]
 ```
 
 **8 Grounding Metrics:**
@@ -320,26 +348,36 @@ $$\text{Stop if } ||S_{t+1} - S_t|| < \epsilon_{sati}$$
 
 ### 5.2. Vipassana Phase (内省)
 
-思考ログ $\mathcal{T} = [S_0, \dots, S^*]$ と **Grounding Metrics** から信頼度を算出する。
+思考ログ $\mathcal{T} = [S_0, \dots, S^*]$ と **Grounding Metrics** から **Triple Score** を算出する。
 
 **文脈ベクトル:**
-$$V_{ctx} = \text{Encoder}([S^*, \text{velocity}, \text{avg\_energy}])$$
+$$V_{ctx} = [h_{dynamic}, h_{static}] \in \mathbb{R}^{c}$$
 
-**信頼度スコア (7特徴量 TrustHead):**
-$$\mathbf{f} = [\log(1+v), \log(1+e), \log(1+d_{S^*}), H, \log(1+d_{S_0}), \log(1+\delta), \log(1+r)]$$
-$$\alpha = \sigma(\text{TrustHead}(\mathbf{f})) \in [0, 1]$$
+ここで $h_{dynamic}$ はGRUエンコーダ出力、$h_{static}$ は8メトリクスの射影。
 
-ここで：
+**Triple Score System:**
+
+1. **Trust Score** (OOD検出、GRU勾配なし):
+$$\text{trust\_score} = \sigma(\text{TrustHead}(h_{static})) \in [0, 1]$$
+
+2. **Conformity Score** (軌跡整合性、GRU勾配あり):
+$$\text{conformity\_score} = \sigma(\text{ConformityHead}(h_{dynamic})) \in [0, 1]$$
+
+3. **Confidence Score** (総合評価、GRU勾配あり):
+$$\text{confidence\_score} = \sigma(\text{ConfidenceHead}([h_{static}, h_{dynamic}])) \in [0, 1]$$
+
+**8 Grounding Metrics ($h_{static}$ の基盤):**
 
 * $v$ = velocity（最終状態変化率）
 * $e$ = 軌跡全体の平均エネルギー
+* $t$ = 収束ステップ数（正規化）
 * $d_{S^*}$ = $S^*$ からプローブへの最小距離
 * $H$ = プローブ分布のエントロピー
 * $d_{S_0}$ = $S_0$ からプローブへの最小距離 (**Grounding**)
 * $\delta = \|S^* - S_0\|$ = ドリフト量 (**Grounding**)
 * $r$ = 再構成誤差 (**Grounding**)
 
-**ターゲット:**
+**ターゲット:** 全3スコアに同一ターゲットを使用
 
 * Clean: $\hat{\alpha} = 1.0$
 * Augmented: $\hat{\alpha} = 1.0 - \text{severity}$
@@ -356,8 +394,8 @@ $$\alpha = \sigma(\text{TrustHead}(\mathbf{f})) \in [0, 1]$$
 * **Stage 1 (Samatha Training):** Stability + Reconstruction + (Optional) Label Guidance
     $$\mathcal{L}_1 = ||S_T - S_{T-1}||^2 + \lambda_r \mathcal{L}_{recon} + \lambda_g \mathcal{L}_{task}(y, \text{AuxHead}(S^*))$$
 
-* **Stage 2 (Vipassana Training):** Binary Cross Entropy (Contrastive)
-    $$\mathcal{L}_2 = \text{BCE}(\alpha, \hat{\alpha})$$
+* **Stage 2 (Vipassana Training):** Triple Score BCE
+    $$\mathcal{L}_2 = \text{BCE}(\text{trust}, \hat{\alpha}) + \text{BCE}(\text{conformity}, \hat{\alpha}) + \text{BCE}(\text{confidence}, \hat{\alpha})$$
 
 * **Stage 3 (Decoder Fine-tuning):** Task Specific Loss
     $$\mathcal{L}_3 = \mathcal{L}_{task}(y, \text{Decoder}(S^*, V_{ctx}))$$
@@ -385,14 +423,18 @@ class SantanaLog:
 ### 6.2. SystemOutput
 
 ```python
-@dataclass
-class SystemOutput:
-    output: Tensor        # デコード結果
-    s_star: Tensor        # 収束した潜在状態
-    v_ctx: Tensor         # Vipassanaの文脈ベクトル
-    trust_score: Tensor   # 信頼度スコア (0.0〜1.0)
-    santana: SantanaLog   # 思考軌跡
-    severity: Tensor      # ノイズ強度
+class SystemOutput(NamedTuple):
+    output: Tensor              # デコード結果
+    s_star: Tensor              # 収束した潜在状態
+    v_ctx: Tensor               # Vipassanaの文脈ベクトル
+    trust_score: Tensor         # OOD検出スコア (0.0〜1.0)
+    conformity_score: Tensor    # 軌跡整合性スコア (0.0〜1.0)
+    confidence_score: Tensor    # 総合信頼度スコア (0.0〜1.0)
+    santana: SantanaLog         # 思考軌跡
+    severity: Tensor            # ノイズ強度
+    aux_output: Optional[Tensor] = None      # Stage 1 AuxHead出力
+    recon_adapter: Optional[Tensor] = None   # Stage 0 再構成
+    recon_samatha: Optional[Tensor] = None   # Stage 1 再構成
 ```
 
 -----
@@ -410,13 +452,17 @@ def inference(x: Tensor) -> SystemOutput:
     # Phase 1: Samatha (収束)
     s_star, santana, severity = samatha_engine(x, run_augmenter=False)
 
-    # Phase 2: Vipassana (内省)
-    v_ctx, trust_score = vipassana_engine(s_star, santana)
+    # Phase 2: Vipassana (内省) - VipassanaOutput を返す
+    vipassana_output = vipassana_engine(s_star, santana)
+    # vipassana_output.v_ctx: 文脈ベクトル
+    # vipassana_output.trust_score: OOD検出
+    # vipassana_output.conformity_score: 軌跡整合性
+    # vipassana_output.confidence_score: 総合信頼度
 
     # Phase 3: Decode (表現)
-    output = conditional_decoder(concat(s_star, v_ctx))
+    output = conditional_decoder(concat(s_star, vipassana_output.v_ctx))
 
-    return SystemOutput(output, s_star, v_ctx, trust_score, santana, severity)
+    return SystemOutput(output, s_star, vipassana_output, santana, severity)
 ```
 
 ### 7.3. SamathaEngine内部フロー
@@ -461,7 +507,7 @@ def samatha_forward(x, noise_level=0.0, run_augmenter=True):
 |:---|:---|:---|:---|:---|
 | **0** | Adapter Pre-training | Adapter, adapter_recon_head | 他すべて | Reconstruction Loss |
 | **1** | Samatha Training | Adapter, Vitakka, Vicara, Sati, (samatha_recon_head, AuxHead) | Vipassana, TaskDecoder | Stability + Recon + (Guidance) |
-| **2** | Vipassana Training | Vipassana | 他すべて | BCE (Contrastive) |
+| **2** | Vipassana Training | Vipassana | 他すべて | Triple Score BCE |
 | **3** | Decoder Fine-tuning | TaskDecoder | 他すべて | Task Specific Loss |
 
 ### 8.2. 反復戦略

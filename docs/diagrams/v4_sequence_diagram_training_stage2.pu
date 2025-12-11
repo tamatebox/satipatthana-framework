@@ -11,8 +11,12 @@ participant "VipassanaEngine" as Vipassana
 == Stage 2: Vipassana Training (Meta-Cognition) ==
 note over Trainer, Vipassana
 Goal: Learn to distinguish valid/invalid trajectories.
-Loss: Binary Cross Entropy (Contrastive)
-Noise Strategies: Augmented(Ambiguity), Drunk(Dysfunction), Mismatch(Hallucination), Void(OOD)
+Loss: Triple Score BCE (trust + conformity + confidence)
+Triple Score System:
+ - trust_score: metrics only (OOD detection, no GRU gradient)
+ - conformity_score: dynamic_context only (GRU gradient path)
+ - confidence_score: both (comprehensive assessment)
+Noise Strategies: Clean(1.0), Augmented(1-severity), Drunk(0.0), Mismatch(0.0), Void(0.0)
 end note
 
 Trainer -> System: forward(x, stage="2_vipassana_gen")
@@ -45,12 +49,16 @@ Trainer -> System: forward(s_star_batch, santana_batch, stage="2_vipassana_train
 activate System
     System -> Vipassana: forward(s_star_batch, santana_batch)
     activate Vipassana
-    Vipassana --> System: v_ctx, trust_scores
+    Vipassana --> System: VipassanaOutput\n(v_ctx, trust, conformity, confidence)
     deactivate Vipassana
-System --> Trainer: trust_scores
+System --> Trainer: VipassanaOutput
 deactivate System
 
-Trainer -> Trainer: Compute Loss:\n BCE(trust_scores, targets)
+Trainer -> Trainer: Compute Loss:\n Triple Score BCE:\n BCE(trust, targets) +\n BCE(conformity, targets) +\n BCE(confidence, targets)
+note right of Trainer
+  conformity_score and confidence_score
+  provide gradients to GRU trajectory encoder
+end note
 Trainer -> System: backward()
 note right of Trainer: Optimize Vipassana Only
 
