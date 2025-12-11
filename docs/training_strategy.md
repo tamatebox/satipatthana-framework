@@ -65,24 +65,31 @@ $$\mathcal{L}_1 = ||S_T - S_{T-1}||^2 + \lambda_r \mathcal{L}_{recon}(X, \hat{X}
 
 **Goal:** Train meta-cognition to recognize "good" vs "bad" thinking processes.
 
-* **Trainable:** Vipassana (LogEncoder + ConfidenceMonitor)
+* **Trainable:** Vipassana (GRU Encoder + 8 Grounding Metrics + Trust Head)
 * **Objective:** $\mathcal{L}_2 = \text{BCE}(\alpha, \hat{\alpha})$
 
 #### Noise Generation Strategies
 
-Three data generation strategies teach Vipassana to detect anomalous thinking:
+Four data generation strategies teach Vipassana to detect anomalous thinking:
 
 | Strategy | Description | Target α |
 |:---|:---|:---|
 | **Augmented Path** | Add noise to input data | `1.0 - severity` |
 | **Drunk Path** | Perturb SamathaEngine internals | `0.0` |
 | **Mismatch Path** | Shuffle S\* and SantanaLog within batch | `0.0` |
+| **Void Path** | Genuine OOD samples (VoidDataset) | `0.0` |
 
 **Drunk Path Implementations:**
 
 * Increase Dropout rate in Vicara Refiner
 * Add temporary noise to Refiner weights
 * Disturb Vitakka's temperature parameter
+
+**Void Path (OOD Detection):**
+
+* Uses `VoidDataset` or `FilteredNoiseVoid` for genuine out-of-distribution samples
+* Trains **Grounding Metrics** (`s0_min_dist`, `drift_magnitude`, `recon_error`)
+* Critical for detecting inputs that converge to familiar regions but are actually OOD
 
 ![Noise Generation](diagrams/images/v4_sequence_diagram_noise_generation.png)
 
@@ -204,10 +211,11 @@ trainer.run_stage(stage=1, epochs=10)
 
 | Data Type | Recommended Ratio |
 |:---|:---|
-| Clean (no noise) | 30% |
-| Augmented (varying severity) | 40% |
-| Drunk Path | 15% |
-| Mismatch Path | 15% |
+| Clean (no noise) | 20% |
+| Augmented (varying severity) | 20% |
+| Drunk Path | 20% |
+| Mismatch Path | 20% |
+| Void Path (OOD) | 20% |
 
 ### General Tips
 

@@ -96,4 +96,43 @@ else Unsupervised Mode
     end note
 end
 
+== Type 4: Out-of-Distribution (Void Path) ==
+note over Trainer, Vicara
+Simulates "Unknown Territory" (Target = 0.0).
+Responsibility: **VoidDataset** (Genuine OOD samples).
+Samatha processes OOD input; Grounding Metrics detect it.
+end note
+
+Trainer -> Trainer: Load from VoidDataset
+note right of Trainer
+    VoidDataset provides genuine OOD samples:
+    - FilteredNoiseVoid: Noise filtered to be far from training data
+    - External OOD dataset wrapper
+    Key: s0_min_dist will be HIGH (far from probes)
+end note
+
+Trainer -> Samatha: forward(x_void, noise=0.0, drunk=False) <<frozen>>
+activate Samatha
+    Samatha -> Vitakka: forward(z_void)
+    note right of Vitakka
+        OOD input → s0 far from all probes
+        (High s0_min_dist - Grounding Metric)
+    end note
+    Vitakka --> Samatha: s_0 (distant from probes)
+    Samatha -> Vicara: forward(s_t)
+    note right of Vicara
+        OOD converges to nearest attractor
+        (Large drift_magnitude - Grounding Metric)
+    end note
+    Vicara --> Samatha: s_{t+1}
+Samatha --> Trainer: s_void, santana_void, 0.0 (severity)
+deactivate Samatha
+
+note over Trainer
+    Vipassana will detect OOD via Grounding Metrics:
+    - High s0_min_dist (started far from known concepts)
+    - Large drift_magnitude (pulled to false attractor)
+    - High recon_error (doesn't match learned patterns)
+end note
+
 @enduml

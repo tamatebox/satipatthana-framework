@@ -226,15 +226,63 @@ $$S_{t+1} = (1 - \beta) S_t + \beta \Phi(S_t)$$
 
 ### 4.6. Vipassana
 
-**Function:** Meta-cognition module that monitors Samatha's thinking log and evaluates logical consistency and confidence.
+**Function:** Meta-cognition module that monitors Samatha's thinking log and evaluates logical consistency and confidence. Uses a **dual-branch architecture** (GRU + Grounding Metrics) for comprehensive analysis.
 
 * **Interface:** `BaseVipassana`
-* **Implementation:** `StandardVipassana`
-* **Input:** Converged state $S^*$ (Batch, $d$), trajectory $\mathcal{T}$
+* **Implementation:** `StandardVipassana` (GRU-based with 8 Grounding Metrics)
+* **Input:**
+  * Converged state $S^*$ (Batch, $d$)
+  * Trajectory $\mathcal{T}$ (SantanaLog, contains $S_0$ and per-sample `convergence_steps`)
+  * Probe vectors $\mathbf{P}$ (optional, $K \times d$)
+  * Reconstruction error (optional, Batch, 1)
 * **Output:** Context vector $V_{ctx}$ (Batch, $c$), trust score $\alpha$ (Batch, 1)
-* **LogEncoder:** Compresses time-series log $\mathcal{T}$ into fixed-length vector
-  * **Recommended Implementation:** Bi-LSTM or Transformer Encoder (1-2 layers). A time-series model is essential to capture "order" of thinking and "acceleration of convergence".
-* **ConfidenceMonitor:** Detects "hesitation" or "contradiction", outputs trust score $\alpha$ and context vector $V_{ctx}$
+
+**Architecture:**
+
+```mermaid
+flowchart TB
+    subgraph Input
+        santana["SantanaLog<br/>(variable-length trajectory)"]
+    end
+
+    subgraph Branch1["Branch 1: Dynamic"]
+        gru["GRU Encoder<br/>pack_padded_sequence"]
+        hdyn["(Batch, gru_hidden_dim)"]
+    end
+
+    subgraph Branch2["Branch 2: Static"]
+        metrics["8 Grounding Metrics<br/>_compile_metrics()"]
+        hstatic["(Batch, metric_proj_dim)"]
+    end
+
+    santana --> gru
+    santana --> metrics
+    gru --> hdyn
+    metrics --> hstatic
+
+    hdyn --> concat["Concat"]
+    hstatic --> concat
+    concat --> vctx["V_ctx (Batch, context_dim)"]
+    vctx --> trust["Trust Head"]
+    trust --> alpha["α (Batch, 1)"]
+```
+
+**8 Grounding Metrics:**
+
+| # | Feature | Description | Normalization | OOD Behavior |
+|:---|:---|:---|:---|:---|
+| 1 | `velocity` | $\|S_T - S_{T-1}\|$ (final movement) | log1p | High = unstable |
+| 2 | `avg_energy` | mean($\|S_t - S_{t-1}\|^2$) with mask | log1p | High = rough convergence |
+| 3 | `convergence_steps` | $t / T_{max}$ (normalized thinking time) | linear | High = slow convergence |
+| 4 | `min_dist` | $\min(\|S^* - P\|)$ (familiarity) | log1p | High = unfamiliar concept |
+| 5 | `entropy` | Probe distribution entropy | none | High = ambiguous |
+| 6 | `s0_min_dist` | $\min(\|S_0 - P\|)$ (initial OOD degree) | log1p | **High = OOD before convergence** |
+| 7 | `drift_magnitude` | $\|S^* - S_0\|$ (total movement) | log1p | **Large = pulled to attractor** |
+| 8 | `recon_error` | Reconstruction loss | log1p | **High = hallucination** |
+
+**Grounding Metrics** (`s0_min_dist`, `drift_magnitude`, `recon_error`) are critical for detecting OOD inputs that would otherwise converge to familiar regions. They capture the "before convergence" state that is lost in the final $S^*$.
+
+**Variable-Length Support:** The GRU encoder uses `pack_padded_sequence` to handle per-sample `convergence_steps`, ensuring that padding noise does not affect the dynamic context encoding.
 
 **Fallback Strategy:** When $\alpha < \text{threshold}$ during inference:
 
@@ -258,12 +306,38 @@ $$\text{Stop if } ||S_{t+1} - S_t|| < \epsilon_{sati}$$
 
 ### 5.2. Vipassana Phase (Introspection)
 
-Calculates trust from thinking log $\mathcal{T} = [S_0, \dots, S^*]$.
+Calculates trust from thinking log $\mathcal{T} = [S_0, \dots, S^*]$ using a dual-branch architecture.
 
-$$V_{ctx} = \text{Encoder}(\mathcal{T})$$
-$$\alpha = \sigma(\text{Linear}(V_{ctx})) \in [0, 1]$$
+**Branch 1 - Dynamic Context (GRU):**
+$$h_{dyn} = \text{GRU}(\mathcal{T}, \text{lengths})$$
 
-* Target ($\hat{\alpha}$): Clean=1.0, Mismatch/Drunk=0.0
+Uses `pack_padded_sequence` to handle variable-length trajectories with per-sample `convergence_steps`.
+
+**Branch 2 - Static Context (8 Grounding Metrics):**
+$$\mathbf{m} = [\log(1+v), \log(1+e), t/T_{max}, \log(1+d_{S^*}), H, \log(1+d_{S_0}), \log(1+\delta), \log(1+r)]$$
+$$h_{static} = \text{MLP}(\mathbf{m})$$
+
+Where:
+
+* $v$ = velocity (final state change $\|S_T - S_{T-1}\|$)
+* $e$ = average energy across trajectory (with mask)
+* $t/T_{max}$ = normalized convergence steps
+* $d_{S^*}$ = min distance from $S^*$ to probes
+* $H$ = entropy of probe distribution
+* $d_{S_0}$ = min distance from $S_0$ to probes (**Grounding**)
+* $\delta = \|S^* - S_0\|$ = drift magnitude (**Grounding**)
+* $r$ = reconstruction error (**Grounding**)
+
+**Fusion & Trust Score:**
+$$V_{ctx} = [h_{dyn}; h_{static}]$$
+$$\alpha = \sigma(\text{TrustHead}(V_{ctx})) \in [0, 1]$$
+
+**Targets:**
+
+* Clean: $\hat{\alpha} = 1.0$
+* Augmented: $\hat{\alpha} = 1.0 - \text{severity}$
+* Mismatch/Drunk: $\hat{\alpha} = 0.0$
+* Void (OOD): $\hat{\alpha} = 0.0$
 
 ### 5.3. Loss Function (Stage-wise)
 
@@ -409,7 +483,7 @@ def samatha_forward(x, noise_level=0.0, run_augmenter=True):
 
 ### 8.4. Stage 2 Noise Generation Strategy
 
-Three data generation strategies to teach Vipassana meta-cognition:
+Four data generation strategies to teach Vipassana meta-cognition:
 
 1. **Environmental Ambiguity (Augmented Path)**
    * Add noise to input data
@@ -424,14 +498,20 @@ Three data generation strategies to teach Vipassana meta-cognition:
    * Shuffle S* and SantanaLog within batch
    * Target: `0.0`
 
+4. **Out-of-Distribution (Void Path)**
+   * Use genuine OOD samples (VoidDataset, FilteredNoiseVoid)
+   * Key for training Grounding Metrics: OOD samples start far from probes (high `s0_min_dist`)
+   * Target: `0.0`
+
 **Batch Composition (recommended):**
 
 | Path | Proportion | Purpose |
 |:---|:---|:---|
-| Clean | 25% | Baseline trust |
-| Augmented | 25% | Environmental uncertainty |
-| Drunk | 25% | Internal dysfunction detection |
-| Mismatch | 25% | Logical inconsistency detection |
+| Clean | 20% | Baseline trust |
+| Augmented | 20% | Environmental uncertainty |
+| Drunk | 20% | Internal dysfunction detection |
+| Mismatch | 20% | Logical inconsistency detection |
+| Void | 20% | OOD detection (Grounding Metrics) |
 
 -----
 

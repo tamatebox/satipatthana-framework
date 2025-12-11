@@ -23,15 +23,19 @@ package "satipatthana" {
             + states: List[Tensor]
             + meta_history: List[Dict]
             + energies: List[float]
+            + convergence_steps: Tensor
             --
             + to_tensor() : Tensor
+            + get_padded_trajectory() : Tuple
+            + get_initial_state() : Tensor
             + __len__() : int
         }
         note right of SantanaLog
-          trajectory_tensor は to_tensor() で
-          遅延計算（Lazy Evaluation）。
-          Vipassana の LogEncoder 入力時に呼び出し。
-          Shape: (num_steps, dim)
+          Per-sample convergence tracking for
+          variable-length GRU in Vipassana.
+          get_padded_trajectory() returns:
+          - (Steps, Batch, Dim) trajectory
+          - (Batch,) lengths for pack_padded_sequence
         end note
 
         class SatipatthanaSystem {
@@ -100,14 +104,15 @@ package "satipatthana" {
         class VipassanaEngine {
             + config: VipassanaConfig
             + monitor: BaseVipassana
-            + forward(s_star, santana) : Tuple
+            + forward(s_star, santana, probes, recon_error) : Tuple
         }
         note right of VipassanaEngine::forward
-          Returns: (v_ctx: Tensor, trust_score: float)
+          Input: (s_star, santana, probes=None, recon_error=None)
+          Returns: (v_ctx: Tensor, trust_score: Tensor)
           - v_ctx: Context vector (embedding of "doubt/ambiguity")
-          - trust_score: Scalar confidence score (0.0-1.0)
-          Internally uses LogEncoder (from BaseVipassana) to compress logs,
-          then ConfidenceMonitor to derive v_ctx and trust_score.
+          - trust_score: Confidence score (Batch, 1) in [0.0, 1.0]
+          Uses Grounding Metrics (s0_min_dist, drift, recon_error)
+          to detect OOD inputs that converge to familiar regions.
         end note
     }
 
@@ -168,10 +173,32 @@ package "satipatthana" {
 
         package "vipassana" {
             abstract class BaseVipassana {
-                + {abstract} forward(s_star, santana) : Tuple
+                + {abstract} forward(s_star, santana, probes, recon_error) : Tuple
             }
-            class LogEncoder
-            class ConfidenceMonitor
+            class StandardVipassana {
+                + trajectory_gru: GRU
+                + metric_projector: MLP
+                + trust_head: MLP
+                --
+                + _encode_trajectory(santana) : Tensor
+                + _compile_metrics(s_star, santana, probes, recon_error) : Tensor
+            }
+            note bottom of StandardVipassana
+              === Dual-Branch Architecture ===
+              Branch 1 (Dynamic): GRU encodes trajectory
+              Branch 2 (Static): 8 Grounding Metrics → MLP
+              V_ctx = Concat(dynamic, static)
+
+              === 8 Grounding Metrics ===
+              1. velocity: ||S_T - S_{T-1}||
+              2. avg_energy: mean trajectory energy (masked)
+              3. convergence_steps: t / max_steps
+              4. min_dist: S* to nearest probe
+              5. entropy: probe distribution entropy
+              6. s0_min_dist: S0 to nearest probe (Grounding)
+              7. drift_magnitude: ||S* - S0|| (Grounding)
+              8. recon_error: reconstruction MSE (Grounding)
+            end note
         }
 
         package "decoders" {
@@ -247,6 +274,7 @@ package "satipatthana" {
             + drunk_ratio: float
             + mismatch_ratio: float
             + augment_ratio: float
+            + void_ratio: float
         }
     }
 }
@@ -272,8 +300,7 @@ VipassanaEngine *-- VipassanaConfig
 VipassanaEngine o-- BaseVipassana
 
 BaseVicara o-- BaseRefiner
-BaseVipassana <|-- LogEncoder
-BaseVipassana <|-- ConfidenceMonitor
+StandardVipassana --|> BaseVipassana
 ConditionalDecoder --|> BaseDecoder
 SimpleReconstructionDecoder --|> BaseDecoder
 SimpleAuxHead --|> BaseDecoder

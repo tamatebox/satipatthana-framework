@@ -226,15 +226,63 @@ $$S_{t+1} = (1 - \beta) S_t + \beta \Phi(S_t)$$
 
 ### 4.6. Vipassana
 
-**機能:** Samathaの思考ログを監視し、論理的整合性と信頼度を評価するメタ認知モジュール。
+**機能:** Samathaの思考ログを監視し、論理的整合性と信頼度を評価するメタ認知モジュール。**dual-branch アーキテクチャ**（GRU + Grounding Metrics）による包括的な分析を行う。
 
 * **Interface:** `BaseVipassana`
-* **実装:** `StandardVipassana`
-* **入力:** 収束状態 $S^*$ (Batch, $d$)、軌跡 $\mathcal{T}$
+* **実装:** `StandardVipassana`（GRUベース、8 Grounding Metrics）
+* **入力:**
+  * 収束状態 $S^*$ (Batch, $d$)
+  * 軌跡 $\mathcal{T}$ (SantanaLog、$S_0$ とサンプル毎の `convergence_steps` を含む)
+  * プローブベクトル $\mathbf{P}$ (オプション、$K \times d$)
+  * 再構成誤差 (オプション、Batch, 1)
 * **出力:** 文脈ベクトル $V_{ctx}$ (Batch, $c$)、信頼度スコア $\alpha$ (Batch, 1)
-* **LogEncoder:** 時系列ログ $\mathcal{T}$ を固定長ベクトルに圧縮
-  * **推奨実装:** Bi-LSTM または Transformer Encoder (1-2 layers)。思考の「順序」と「収束の加速度」を捉えるには時系列モデルが必須。
-* **ConfidenceMonitor:** 「迷い」や「矛盾」を検知し、信頼度スコア $\alpha$ と文脈ベクトル $V_{ctx}$ を出力
+
+**アーキテクチャ:**
+
+```mermaid
+flowchart TB
+    subgraph Input
+        santana["SantanaLog<br/>(可変長軌跡)"]
+    end
+
+    subgraph Branch1["Branch 1: Dynamic"]
+        gru["GRU Encoder<br/>pack_padded_sequence"]
+        hdyn["(Batch, gru_hidden_dim)"]
+    end
+
+    subgraph Branch2["Branch 2: Static"]
+        metrics["8 Grounding Metrics<br/>_compile_metrics()"]
+        hstatic["(Batch, metric_proj_dim)"]
+    end
+
+    santana --> gru
+    santana --> metrics
+    gru --> hdyn
+    metrics --> hstatic
+
+    hdyn --> concat["Concat"]
+    hstatic --> concat
+    concat --> vctx["V_ctx (Batch, context_dim)"]
+    vctx --> trust["Trust Head"]
+    trust --> alpha["α (Batch, 1)"]
+```
+
+**8 Grounding Metrics:**
+
+| # | 特徴量 | 説明 | 正規化 | OOD時の挙動 |
+|:---|:---|:---|:---|:---|
+| 1 | `velocity` | $\|S_T - S_{T-1}\|$ (最終移動量) | log1p | 高 = 不安定 |
+| 2 | `avg_energy` | mean($\|S_t - S_{t-1}\|^2$) マスク付き | log1p | 高 = 粗い収束 |
+| 3 | `convergence_steps` | $t / T_{max}$ (正規化された思考時間) | linear | 高 = 収束が遅い |
+| 4 | `min_dist` | $\min(\|S^* - P\|)$ (親和性) | log1p | 高 = 未知の概念 |
+| 5 | `entropy` | プローブ分布のエントロピー | none | 高 = 曖昧 |
+| 6 | `s0_min_dist` | $\min(\|S_0 - P\|)$ (初期OOD度) | log1p | **高 = 収束前からOOD** |
+| 7 | `drift_magnitude` | $\|S^* - S_0\|$ (総移動量) | log1p | **大 = アトラクタに引き込まれた** |
+| 8 | `recon_error` | 再構成損失 | log1p | **高 = 幻覚** |
+
+**Grounding Metrics** (`s0_min_dist`, `drift_magnitude`, `recon_error`) は、そうでなければ既知の領域に収束してしまうOOD入力の検出に重要である。最終状態 $S^*$ では失われる「収束前」の状態を捉える。
+
+**可変長サポート:** GRUエンコーダは `pack_padded_sequence` を使用してサンプル毎の `convergence_steps` を処理し、パディングノイズが動的コンテキストのエンコーディングに影響しないようにする。
 
 **フォールバック戦略:** 推論時に $\alpha < \text{threshold}$ の場合：
 
@@ -258,12 +306,31 @@ $$\text{Stop if } ||S_{t+1} - S_t|| < \epsilon_{sati}$$
 
 ### 5.2. Vipassana Phase (内省)
 
-思考ログ $\mathcal{T} = [S_0, \dots, S^*]$ から信頼度を算出する。
+思考ログ $\mathcal{T} = [S_0, \dots, S^*]$ と **Grounding Metrics** から信頼度を算出する。
 
-$$V_{ctx} = \text{Encoder}(\mathcal{T})$$
-$$\alpha = \sigma(\text{Linear}(V_{ctx})) \in [0, 1]$$
+**文脈ベクトル:**
+$$V_{ctx} = \text{Encoder}([S^*, \text{velocity}, \text{avg\_energy}])$$
 
-* Target ($\hat{\alpha}$): Clean=1.0, Mismatch/Drunk=0.0
+**信頼度スコア (7特徴量 TrustHead):**
+$$\mathbf{f} = [\log(1+v), \log(1+e), \log(1+d_{S^*}), H, \log(1+d_{S_0}), \log(1+\delta), \log(1+r)]$$
+$$\alpha = \sigma(\text{TrustHead}(\mathbf{f})) \in [0, 1]$$
+
+ここで：
+
+* $v$ = velocity（最終状態変化率）
+* $e$ = 軌跡全体の平均エネルギー
+* $d_{S^*}$ = $S^*$ からプローブへの最小距離
+* $H$ = プローブ分布のエントロピー
+* $d_{S_0}$ = $S_0$ からプローブへの最小距離 (**Grounding**)
+* $\delta = \|S^* - S_0\|$ = ドリフト量 (**Grounding**)
+* $r$ = 再構成誤差 (**Grounding**)
+
+**ターゲット:**
+
+* Clean: $\hat{\alpha} = 1.0$
+* Augmented: $\hat{\alpha} = 1.0 - \text{severity}$
+* Mismatch/Drunk: $\hat{\alpha} = 0.0$
+* Void (OOD): $\hat{\alpha} = 0.0$
 
 ### 5.3. Loss Function (Stage-wise)
 
@@ -409,7 +476,7 @@ def samatha_forward(x, noise_level=0.0, run_augmenter=True):
 
 ### 8.4. Stage 2 ノイズ生成戦略
 
-Vipassanaにメタ認知能力を習得させるための3種類のデータ生成戦略:
+Vipassanaにメタ認知能力を習得させるための4種類のデータ生成戦略:
 
 1. **Environmental Ambiguity (Augmented Path)**
    * 入力データへのノイズ付与
@@ -424,14 +491,20 @@ Vipassanaにメタ認知能力を習得させるための3種類のデータ生�
    * バッチ内でS*とSantanaLogをシャッフル
    * Target: `0.0`
 
+4. **Out-of-Distribution (Void Path)**
+   * 真のOODサンプル（VoidDataset、FilteredNoiseVoid）を使用
+   * Grounding Metricsの学習に重要：OODサンプルはプローブから遠い位置（高い `s0_min_dist`）から開始
+   * Target: `0.0`
+
 **バッチ構成 (推奨):**
 
 | パス | 割合 | 目的 |
 |:---|:---|:---|
-| Clean | 25% | ベースライン信頼度 |
-| Augmented | 25% | 環境的不確実性 |
-| Drunk | 25% | 内部機能不全の検知 |
-| Mismatch | 25% | 論理的不整合の検知 |
+| Clean | 20% | ベースライン信頼度 |
+| Augmented | 20% | 環境的不確実性 |
+| Drunk | 20% | 内部機能不全の検知 |
+| Mismatch | 20% | 論理的不整合の検知 |
+| Void | 20% | OOD検出（Grounding Metrics） |
 
 -----
 

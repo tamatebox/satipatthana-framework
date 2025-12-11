@@ -12,7 +12,7 @@ participant "VipassanaEngine" as Vipassana
 note over Trainer, Vipassana
 Goal: Learn to distinguish valid/invalid trajectories.
 Loss: Binary Cross Entropy (Contrastive)
-Noise Strategies: Augmented(Ambiguity), Drunk(Dysfunction), Mismatch(Hallucination)
+Noise Strategies: Augmented(Ambiguity), Drunk(Dysfunction), Mismatch(Hallucination), Void(OOD)
 end note
 
 Trainer -> System: forward(x, stage="2_vipassana_gen")
@@ -27,12 +27,18 @@ Trainer -> Trainer: Create Noise Data
 group Noise Generation Strategies
     Trainer -> System: forward(x, noise_level=High) -> Augmented Santana (Target=Low)
     Trainer -> System: forward(x, drunk_mode=True) -> Drunk Santana (Target=0.0)
-    
+
     alt use_label_guidance is True (Supervised)
         Trainer -> Trainer: Create Mismatch (Hallucination)\nCross-Label Shuffle: Combine S*_A with Santana_B\nwhere Label(A) != Label(B)
     else Unsupervised Mode
         Trainer -> Trainer: Create Mismatch (Hallucination)\nRandom Shuffle: Combine S*_A with Santana_Random
     end
+
+    Trainer -> System: forward(x_void) -> Void Santana (Target=0.0)
+    note right of Trainer
+        Void Path: OOD samples from VoidDataset
+        Trains Grounding Metrics (s0_min_dist, drift)
+    end note
 end
 
 Trainer -> System: forward(s_star_batch, santana_batch, stage="2_vipassana_train")

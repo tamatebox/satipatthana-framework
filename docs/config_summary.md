@@ -171,15 +171,19 @@ VipassanaEngine（内省エンジン）の構成を定義します。
 
 ## 9. Vipassana設定 (`satipatthana/configs/vipassana.py`)
 
-メタ認知モジュールの動作を定義します。
+メタ認知モジュールの動作を定義します。GRU + 8 Grounding Metrics の dual-branch アーキテクチャを採用。
 
 ### `StandardVipassanaConfig`
 
 | 属性 | デフォルト値 | 必須 | 説明 |
 | :--- | :--- | :--- | :--- |
-| **`context_dim`** | - | **はい** | 出力文脈ベクトル $V_{ctx}$ の次元 |
-| **`latent_dim`** | `64` | いいえ | 入力潜在状態の次元 |
-| **`hidden_dim`** | `64` | いいえ | LogEncoder内の隠れ層の次元 |
+| **`latent_dim`** | `64` | いいえ | 入力潜在状態 $S^*$ の次元 |
+| **`gru_hidden_dim`** | `32` | いいえ | GRU軌跡エンコーダの隠れ次元 (Dynamic Context) |
+| **`metric_proj_dim`** | `32` | いいえ | 8 Grounding Metricsの射影次元 (Static Context) |
+| **`max_steps`** | `10` | いいえ | 最大ステップ数（convergence_stepsの正規化用） |
+| **`context_dim`** | 自動計算 | いいえ | `gru_hidden_dim + metric_proj_dim` で自動計算 |
+
+**注意:** `context_dim` は `__post_init__` で自動計算されるため、明示的に指定する必要はありません。
 
 ## 10. デコーダー設定 (`satipatthana/configs/decoders.py`)
 

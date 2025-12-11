@@ -79,6 +79,18 @@ Even stable convergence can be wrong. The system needs to know when to trust its
 
 This is not post-hoc calibration — it's architectural self-awareness.
 
+### 2.4. Why Grounding Metrics?
+
+A critical problem: **OOD (Out-of-Distribution) inputs converge to familiar attractors.** The Vicara process "pulls" unfamiliar inputs toward known concept regions, making them indistinguishable from in-distribution samples when only examining the final state $S^*$.
+
+**Grounding Metrics** solve this by capturing pre-convergence information:
+
+1. **s0_min_dist** — Distance from initial state $S_0$ to nearest probe. High value indicates the input was far from known concepts *before* convergence.
+2. **drift_magnitude** — How far Vicara moved the state ($\|S^* - S_0\|$). Large drift suggests the input was "pulled" to a false attractor.
+3. **recon_error** — Reconstruction error as reality check. High error indicates hallucination.
+
+These metrics enable detection of "confidently wrong" states — inputs that converge smoothly but to incorrect regions.
+
 ---
 
 ## 3. Philosophical Foundations
