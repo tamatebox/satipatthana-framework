@@ -105,6 +105,34 @@ else:
     # Trigger fallback, search, or abstain
 ```
 
+### Data Format
+
+Datasets must return a dictionary with `"x"` key:
+
+```python
+class MyDataset(Dataset):
+    def __getitem__(self, idx):
+        return {
+            "x": self.data[idx],   # Required: input tensor
+            "y": self.labels[idx]  # Optional: labels (Stage 1 guidance, Stage 3)
+        }
+```
+
+For Stage 2 OOD training, use `VoidDataset`:
+
+```python
+from satipatthana.data import FilteredNoiseVoid
+
+void_dataset = FilteredNoiseVoid(
+    reference_data=train_data_tensor,
+    shape=(input_dim,),
+    length=5000,
+    min_distance=0.3,
+)
+```
+
+> See [docs/data_format.md](docs/data_format.md) for full specification.
+
 ### Training (4-Stage Curriculum)
 
 ```python
@@ -115,6 +143,7 @@ trainer = SatipatthanaTrainer(
     model=system,
     args=TrainingArguments(output_dir="./output", num_train_epochs=10),
     train_dataset=dataset,
+    void_dataset=void_dataset,  # For Stage 2
 )
 
 results = trainer.run_curriculum(
