@@ -26,6 +26,7 @@ from satipatthana.components.objectives.vipassana import (
     ProbeDiversityLoss,
     StabilityLoss,
 )
+from satipatthana.configs.curriculum import CurriculumConfig, StageConfig
 from satipatthana.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -568,44 +569,144 @@ class SatipatthanaTrainer(Trainer):
                 logger.warning(f"Failed to initialize Vipassana networks: {e}")
 
     def run_curriculum(
-        self, stage0_epochs: int = 0, stage1_epochs: int = 10, stage2_epochs: int = 5, stage3_epochs: int = 5, **kwargs
+        self,
+        curriculum: Optional["CurriculumConfig"] = None,
+        **kwargs,
     ):
         """
         Run the full 4-stage curriculum.
 
         Args:
-            stage0_epochs: Epochs for Adapter Pre-training (0 to skip)
-            stage1_epochs: Epochs for Samatha Training
-            stage2_epochs: Epochs for Vipassana Training
-            stage3_epochs: Epochs for Decoder Fine-tuning
+            curriculum: CurriculumConfig with per-stage settings.
+                        If None, uses default CurriculumConfig().
             **kwargs: Additional arguments passed to train()
 
         Returns:
             Dict with results from each stage
+
+        Examples:
+            # Use default curriculum
+            results = trainer.run_curriculum()
+
+            # Custom curriculum
+            from satipatthana import CurriculumConfig, StageConfig
+
+            curriculum = CurriculumConfig(
+                stage1=StageConfig(epochs=20, learning_rate=1e-4),
+                stage2=StageConfig(epochs=10),
+            )
+            results = trainer.run_curriculum(curriculum)
         """
+        if curriculum is None:
+            curriculum = CurriculumConfig()
+
         results = {}
 
-        if stage0_epochs > 0:
+        # Stage 0: Adapter Pre-training
+        if curriculum.stage0.epochs > 0:
             logger.info("=== Stage 0: Adapter Pre-training ===")
-            results["stage0"] = self.train_stage(TrainingStage.ADAPTER_PRETRAINING, num_epochs=stage0_epochs, **kwargs)
+            results["stage0"] = self._train_stage_with_config(
+                TrainingStage.ADAPTER_PRETRAINING,
+                curriculum.stage0,
+                **kwargs,
+            )
 
-        if stage1_epochs > 0:
+        # Stage 1: Samatha Training
+        if curriculum.stage1.epochs > 0:
             logger.info("=== Stage 1: Samatha Training ===")
-            results["stage1"] = self.train_stage(TrainingStage.SAMATHA_TRAINING, num_epochs=stage1_epochs, **kwargs)
+            results["stage1"] = self._train_stage_with_config(
+                TrainingStage.SAMATHA_TRAINING,
+                curriculum.stage1,
+                **kwargs,
+            )
 
-        if stage2_epochs > 0:
+        # Stage 2: Vipassana Training
+        if curriculum.stage2.epochs > 0:
             logger.info("=== Stage 2: Vipassana Training ===")
-            results["stage2"] = self.train_stage(TrainingStage.VIPASSANA_TRAINING, num_epochs=stage2_epochs, **kwargs)
+            # Store noise_path_ratios for Stage 2
+            self._noise_path_ratios = curriculum.noise_path_ratios
+            results["stage2"] = self._train_stage_with_config(
+                TrainingStage.VIPASSANA_TRAINING,
+                curriculum.stage2,
+                **kwargs,
+            )
 
-        if stage3_epochs > 0:
+        # Stage 3: Decoder Fine-tuning
+        if curriculum.stage3.epochs > 0:
             logger.info("=== Stage 3: Decoder Fine-tuning ===")
-            results["stage3"] = self.train_stage(TrainingStage.DECODER_FINETUNING, num_epochs=stage3_epochs, **kwargs)
+            results["stage3"] = self._train_stage_with_config(
+                TrainingStage.DECODER_FINETUNING,
+                curriculum.stage3,
+                **kwargs,
+            )
 
         # Set to inference mode after training
         self.set_stage(TrainingStage.INFERENCE)
 
         logger.info("=== Curriculum Training Complete ===")
+        logger.info(f"Total epochs trained: {curriculum.total_epochs()}")
         return results
+
+    def _train_stage_with_config(
+        self,
+        stage: TrainingStage,
+        stage_config: "StageConfig",
+        **kwargs,
+    ):
+        """
+        Train a specific stage using StageConfig settings.
+
+        This method applies per-stage configuration including:
+        - Learning rate
+        - Noise level
+        - Loss weights
+
+        Args:
+            stage: Training stage
+            stage_config: Per-stage configuration
+            **kwargs: Additional arguments passed to train()
+        """
+        # Apply stage-specific settings
+        original_lr = self.args.learning_rate
+        original_noise_level = self.noise_level
+        original_stability_weight = self.stability_weight
+        original_guidance_weight = self.guidance_weight
+        original_recon_weight = self.recon_weight
+        original_diversity_weight = self.diversity_weight
+
+        try:
+            # Apply stage config (only if not None)
+            if stage_config.learning_rate is not None:
+                self.args.learning_rate = stage_config.learning_rate
+                logger.info(f"  Learning rate: {stage_config.learning_rate}")
+
+            if stage_config.noise_level is not None:
+                self.noise_level = stage_config.noise_level
+                logger.info(f"  Noise level: {stage_config.noise_level}")
+
+            if stage_config.stability_weight is not None:
+                self.stability_weight = stage_config.stability_weight
+
+            if stage_config.guidance_weight is not None:
+                self.guidance_weight = stage_config.guidance_weight
+
+            if stage_config.recon_weight is not None:
+                self.recon_weight = stage_config.recon_weight
+
+            if stage_config.diversity_weight is not None:
+                self.diversity_weight = stage_config.diversity_weight
+
+            # Use the existing train_stage method
+            return self.train_stage(stage, num_epochs=stage_config.epochs, **kwargs)
+
+        finally:
+            # Restore original values
+            self.args.learning_rate = original_lr
+            self.noise_level = original_noise_level
+            self.stability_weight = original_stability_weight
+            self.guidance_weight = original_guidance_weight
+            self.recon_weight = original_recon_weight
+            self.diversity_weight = original_diversity_weight
 
 
 __all__ = ["SatipatthanaTrainer", "Stage2NoiseStrategy"]

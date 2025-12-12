@@ -1,8 +1,42 @@
 # Satipatthana モデル設定パラメータ概要 (v4.0 Config System)
 
-このドキュメントでは、`Satipatthana Framework`のConfigパラメータについて説明します。v4.0では、3エンジン構造（SamathaEngine, VipassanaEngine, ConditionalDecoder）に対応した新しいConfig体系に移行しました。
+このドキュメントでは、`Satipatthana Framework`のConfigパラメータについて説明します。
 
-Configのルートは`satipatthana/configs/system.py`で定義されている`SystemConfig`オブジェクトです。
+---
+
+## 推奨: 簡易API (`SatipatthanaConfig`)
+
+**ほとんどのユースケースでは、以下の簡易APIを使用してください：**
+
+```python
+from satipatthana import SatipatthanaConfig, create_system, CurriculumConfig
+
+# システム構築（最もシンプル）
+system = create_system("mlp", input_dim=128, output_dim=10)
+
+# または設定をカスタマイズ
+config = SatipatthanaConfig(
+    input_dim=128,
+    output_dim=10,
+    latent_dim=64,
+    adapter="mlp",  # "mlp", "cnn", "lstm", "transformer"
+    n_probes=10,
+)
+system = config.build()
+
+# 学習
+trainer.run_curriculum(CurriculumConfig())  # デフォルト設定で4ステージ学習
+```
+
+詳細は [workflow_guide.md](workflow_guide.md) の **Quick Start** セクションを参照してください。
+
+---
+
+## 内部Config詳細リファレンス
+
+以下は内部Configの詳細です。**パワーユーザー向け**であり、通常は`SatipatthanaConfig`で十分です。
+
+v4.0では、3エンジン構造（SamathaEngine, VipassanaEngine, ConditionalDecoder）に対応しています。内部Configのルートは`satipatthana/configs/system.py`で定義されている`SystemConfig`オブジェクトです。
 
 ## 1. ルート設定: `SystemConfig` (`satipatthana/configs/system.py`)
 
