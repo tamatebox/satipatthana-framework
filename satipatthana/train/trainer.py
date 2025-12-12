@@ -571,54 +571,34 @@ class SatipatthanaTrainer(Trainer):
     def run_curriculum(
         self,
         curriculum: Optional["CurriculumConfig"] = None,
-        # Legacy arguments (deprecated, use CurriculumConfig instead)
-        stage0_epochs: Optional[int] = None,
-        stage1_epochs: Optional[int] = None,
-        stage2_epochs: Optional[int] = None,
-        stage3_epochs: Optional[int] = None,
         **kwargs,
     ):
         """
         Run the full 4-stage curriculum.
 
         Args:
-            curriculum: CurriculumConfig with per-stage settings (recommended)
-            stage0_epochs: [DEPRECATED] Use curriculum.stage0.epochs instead
-            stage1_epochs: [DEPRECATED] Use curriculum.stage1.epochs instead
-            stage2_epochs: [DEPRECATED] Use curriculum.stage2.epochs instead
-            stage3_epochs: [DEPRECATED] Use curriculum.stage3.epochs instead
+            curriculum: CurriculumConfig with per-stage settings.
+                        If None, uses default CurriculumConfig().
             **kwargs: Additional arguments passed to train()
 
         Returns:
             Dict with results from each stage
 
         Examples:
-            # New API (recommended)
-            from satipatthana.configs.curriculum import CurriculumConfig, StageConfig
+            # Use default curriculum
+            results = trainer.run_curriculum()
+
+            # Custom curriculum
+            from satipatthana import CurriculumConfig, StageConfig
 
             curriculum = CurriculumConfig(
                 stage1=StageConfig(epochs=20, learning_rate=1e-4),
                 stage2=StageConfig(epochs=10),
             )
             results = trainer.run_curriculum(curriculum)
-
-            # Legacy API (still supported)
-            results = trainer.run_curriculum(
-                stage0_epochs=5,
-                stage1_epochs=10,
-                stage2_epochs=5,
-                stage3_epochs=5,
-            )
         """
-        # Handle legacy arguments
         if curriculum is None:
-            # Build CurriculumConfig from legacy arguments
-            curriculum = CurriculumConfig(
-                stage0=StageConfig(epochs=stage0_epochs if stage0_epochs is not None else 0),
-                stage1=StageConfig(epochs=stage1_epochs if stage1_epochs is not None else 10),
-                stage2=StageConfig(epochs=stage2_epochs if stage2_epochs is not None else 5),
-                stage3=StageConfig(epochs=stage3_epochs if stage3_epochs is not None else 5),
-            )
+            curriculum = CurriculumConfig()
 
         results = {}
 

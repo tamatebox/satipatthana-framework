@@ -6,6 +6,105 @@ A purely practical, code-centric guide. Copy, paste, and adapt.
 
 ---
 
+## Quick Start (Recommended)
+
+### Simple System Creation
+
+```python
+from satipatthana import SatipatthanaConfig, create_system
+
+# Option 1: From preset string (simplest)
+system = create_system("mlp", input_dim=128, output_dim=10)
+
+# Option 2: From config (customizable)
+config = SatipatthanaConfig(
+    input_dim=128,
+    output_dim=10,
+    latent_dim=64,
+    adapter="mlp",
+    n_probes=10,
+)
+system = config.build()
+
+# Option 3: CNN for images
+system = create_system(
+    "cnn",
+    input_dim=784,  # ignored for CNN
+    output_dim=10,
+    img_size=28,
+    channels=1,
+)
+
+# Option 4: LSTM for sequences
+system = create_system(
+    "lstm",
+    input_dim=32,
+    output_dim=10,
+    seq_len=50,
+)
+```
+
+### Full Training with CurriculumConfig
+
+```python
+from satipatthana import CurriculumConfig, StageConfig, NoisePathRatios
+from satipatthana.train import SatipatthanaTrainer
+from transformers import TrainingArguments
+
+# Create curriculum (all fields optional - sensible defaults provided)
+curriculum = CurriculumConfig(
+    stage0=StageConfig(epochs=5, learning_rate=1e-3),
+    stage1=StageConfig(epochs=10, learning_rate=5e-4, stability_weight=0.2),
+    stage2=StageConfig(epochs=5, learning_rate=1e-4),
+    stage3=StageConfig(epochs=5, learning_rate=1e-4),
+    noise_path_ratios=NoisePathRatios(
+        clean=0.2, augmented=0.2, drunk=0.2, mismatch=0.2, void=0.2
+    ),
+)
+
+# Initialize trainer
+trainer = SatipatthanaTrainer(
+    model=system,
+    args=TrainingArguments(output_dir="./output", per_device_train_batch_size=32),
+    train_dataset=train_dataset,
+    void_dataset=void_dataset,
+)
+
+# Run full curriculum
+results = trainer.run_curriculum(curriculum)
+
+# Or use defaults
+results = trainer.run_curriculum()
+```
+
+### SatipatthanaConfig Parameters
+
+| Parameter | Type | Default | Description |
+|:----------|:-----|:--------|:------------|
+| `input_dim` | int | **required** | Input dimension |
+| `output_dim` | int | **required** | Output dimension |
+| `latent_dim` | int | 64 | Latent space dimension |
+| `adapter` | str | "mlp" | Adapter type: "mlp", "cnn", "lstm", "transformer" |
+| `vicara` | str | "standard" | Vicara type: "standard", "weighted", "probe" |
+| `sati` | str | "threshold" | Sati type: "fixed", "threshold" |
+| `n_probes` | int | 10 | Number of concept probes |
+| `max_steps` | int | 10 | Maximum Vicara iterations |
+| `use_label_guidance` | bool | False | Enable Stage 1 label guidance |
+
+### StageConfig Parameters
+
+| Parameter | Type | Default | Description |
+|:----------|:-----|:--------|:------------|
+| `epochs` | int | 5 | Training epochs for this stage |
+| `learning_rate` | float | None | Stage-specific learning rate |
+| `batch_size` | int | None | Stage-specific batch size |
+| `noise_level` | float | None | Noise intensity (Stage 1, 2) |
+| `stability_weight` | float | None | Stability loss weight (Stage 1) |
+| `guidance_weight` | float | None | Label guidance weight (Stage 1) |
+| `recon_weight` | float | None | Reconstruction weight (Stage 0, 1) |
+
+---
+
 ## 1. Directory Map
 
 ```text
@@ -226,21 +325,20 @@ train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
 
 ## 4. Training Execution
 
-### Full Curriculum Training
+### Full Curriculum Training (Recommended)
 
 ```python
-from satipatthana.core.system import SatipatthanaSystem
+from satipatthana import create_system, CurriculumConfig, StageConfig
 from satipatthana.train import SatipatthanaTrainer
 from transformers import TrainingArguments
 
-# Instantiate model
-system = SatipatthanaSystem(config)
+# Create system
+system = create_system("mlp", input_dim=128, output_dim=10)
 
 # Training arguments
 args = TrainingArguments(
     output_dir="./output",
     per_device_train_batch_size=32,
-    learning_rate=1e-3,
     logging_steps=100,
     save_strategy="epoch",
 )
@@ -254,19 +352,23 @@ trainer = SatipatthanaTrainer(
     void_dataset=void_dataset,  # For Stage 2
 )
 
-# Run full curriculum
-results = trainer.run_curriculum(
-    stage0_epochs=5,
-    stage1_epochs=10,
-    stage2_epochs=5,
-    stage3_epochs=5,
+# Custom curriculum
+curriculum = CurriculumConfig(
+    stage0=StageConfig(epochs=5, learning_rate=1e-3),
+    stage1=StageConfig(epochs=10, learning_rate=5e-4, stability_weight=0.1),
+    stage2=StageConfig(epochs=5, learning_rate=1e-4),
+    stage3=StageConfig(epochs=5, learning_rate=1e-4),
 )
+results = trainer.run_curriculum(curriculum)
+
+# Or use defaults
+results = trainer.run_curriculum()
 ```
 
 ### Stage-by-Stage Training (Manual Control)
 
 ```python
-from satipatthana.core.system import TrainingStage
+from satipatthana import TrainingStage
 
 # Stage 0: Adapter pre-training
 system.set_training_stage(TrainingStage.ADAPTER_PRETRAINING)
@@ -283,24 +385,6 @@ trainer.train(num_epochs=5)
 # Stage 3: Decoder fine-tuning
 system.set_training_stage(TrainingStage.DECODER_FINETUNING)
 trainer.train(num_epochs=5)
-```
-
-### Learning Rate per Stage
-
-```python
-# Different LR for different stages
-stage_lr = {
-    0: 1e-3,   # Adapter: higher LR
-    1: 5e-4,   # Samatha: moderate
-    2: 1e-4,   # Vipassana: lower (frozen backbone)
-    3: 1e-4,   # Decoder: fine-tuning
-}
-
-for stage, epochs in [(0, 5), (1, 10), (2, 5), (3, 5)]:
-    args.learning_rate = stage_lr[stage]
-    trainer.args = args
-    system.set_training_stage(TrainingStage(stage))
-    trainer.train(num_epochs=epochs)
 ```
 
 ---
