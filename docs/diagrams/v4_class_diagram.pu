@@ -1,0 +1,333 @@
+@startuml v4_class_diagram
+!theme plain
+hide empty members
+skinparam classAttributeIconSize 0
+
+package "satipatthana" {
+    package "configs" {
+        class SystemConfig {
+            + use_label_guidance: bool
+        }
+        note right of SystemConfig::use_label_guidance
+          Flags for Label Utilization:
+          - True: Use labels for Stage 1 Guidance & Stage 2 Mismatch (Hard Negative).
+          - False: Unsupervised mode. AuxHead inactive, Random Shuffle Mismatch.
+        end note
+        class SamathaConfig
+        class VipassanaConfig
+        class ObjectiveConfig
+    }
+
+    package "core" {
+        class SantanaLog {
+            + states: List[Tensor]
+            + meta_history: List[Dict]
+            + energies: List[float]
+            + convergence_steps: Tensor
+            --
+            + to_tensor() : Tensor
+            + get_padded_trajectory() : Tuple
+            + get_initial_state() : Tensor
+            + __len__() : int
+        }
+        note right of SantanaLog
+          Per-sample convergence tracking for
+          variable-length GRU in Vipassana.
+          get_padded_trajectory() returns:
+          - (Steps, Batch, Dim) trajectory
+          - (Batch,) lengths for pack_padded_sequence
+        end note
+
+        class SatipatthanaSystem {
+            + config: SystemConfig
+            + samatha: SamathaEngine
+            + vipassana: VipassanaEngine
+            + task_decoder: ConditionalDecoder
+            + auxiliary_head: SimpleAuxHead
+            + adapter_recon_head: SimpleReconstructionDecoder
+            + samatha_recon_head: SimpleReconstructionDecoder
+            + forward(x, stage, args, y=None) : Any
+            + _forward_samatha(x, noise_level, drunk_mode) : Tuple
+            + _forward_vipassana(s_star, santana) : Tuple
+            + _forward_task_decoder(s_star, v_ctx) : Tensor
+            + _forward_adapter_recon(z_latent) : Tensor
+            + _forward_samatha_recon(s_star) : Tensor
+            + _forward_aux_head(s_star) : Tensor
+        }
+        note right of SatipatthanaSystem
+          === Learning Policy (Freeze/Train) ===
+          - Stage 0 (Adapter Pretrain):
+              Train: Adapter, adapter_recon_head
+              Freeze: Samatha, Vipassana, task_decoder, samatha_recon_head, aux_head
+          - Stage 1 (Samatha Training):
+              Train: Adapter, Samatha, (Optional) samatha_recon_head, (Optional) aux_head
+              Freeze: Vipassana, task_decoder, adapter_recon_head
+              *If use_label_guidance: Train aux_head to guide S* with labels.
+          - Stage 2 (Vipassana Training):
+              Train: Vipassana
+              Freeze: Samatha, Adapter, task_decoder, ReconHeads, aux_head
+              *If use_label_guidance: Use labels for Cross-Label Mismatch generation.
+          - Stage 3 (Decoder Fine-tune):
+              Train: task_decoder
+              Freeze: Samatha, Adapter, Vipassana, ReconHeads, aux_head
+        end note
+        note right of SatipatthanaSystem::forward
+          Returns vary by stage:
+          - Inference: (y_pred: Tensor, trust_score: float)
+          - Stage1 (Samatha Train): (s_star, santana, x_recon, y_aux)
+          - Stage2 (Vipassana Train): VipassanaOutput vs Targets (Triple Score BCE)
+        end note
+
+        class SamathaEngine {
+            + config: SamathaConfig
+            + adapter: BaseAdapter
+            + augmenter: BaseAugmenter
+            + vitakka: BaseVitakka
+            + vicara: BaseVicara
+            + sati: BaseSati
+            + forward(x, noise_level, drunk_mode) : Tuple
+            + _run_vicara_loop(s0, num_steps) : Tuple
+        }
+        note right of SamathaEngine::forward
+          Returns: (s_star: Tensor, santana: SantanaLog, severity: Tensor)
+          - s_star: Converged attractor state (Batch, Dim)
+          - santana: SantanaLog object (trajectory, meta, energy)
+          - severity: Per-sample noise level (Batch,) for Vipassana target
+          Handles 'drunk_mode' by controlling internal sub-components (Vitakka, Vicara).
+        end note
+        note right of SamathaEngine::_run_vicara_loop
+          Iteratively calls Vicara.forward(s_t) for `num_steps`.
+          Stops early if Sati.forward(s_curr, santana) signals to stop.
+          Returns final s_star and collected SantanaLog.
+        end note
+
+        class VipassanaEngine {
+            + config: VipassanaConfig
+            + monitor: BaseVipassana
+            + forward(s_star, santana, probes, recon_error) : VipassanaOutput
+        }
+        note right of VipassanaEngine::forward
+          Input: (s_star, santana, probes=None, recon_error=None)
+          Returns: VipassanaOutput containing:
+          - v_ctx: Context vector (embedding of "doubt/ambiguity")
+          - trust_score: From metrics only (OOD detection)
+          - conformity_score: From dynamic_context (GRU gradient path)
+          - confidence_score: From both (comprehensive)
+          Uses Grounding Metrics (s0_min_dist, drift, recon_error)
+          to detect OOD inputs that converge to familiar regions.
+        end note
+    }
+
+    package "components" {
+        package "adapters" {
+            abstract class BaseAdapter {
+                + {abstract} forward(x) : Tensor
+            }
+        }
+
+        package "augmenters" {
+            abstract class BaseAugmenter {
+                + {abstract} forward(x, noise_level) : Tuple[Tensor, Tensor]
+            }
+        }
+        note bottom of BaseAugmenter
+          === Input Transformation Component ===
+          Applies environmental noise to raw input `x`.
+          Returns: (x_augmented: Tensor, severity: Tensor).
+          - x_augmented: Shape same as x
+          - severity: Shape (Batch,) - per-sample noise intensity
+          Does NOT control internal Samatha components for 'drunk_mode'.
+        end note
+
+        package "vitakka" {
+            abstract class BaseVitakka {
+                + {abstract} forward(z) : Tensor
+            }
+        }
+
+        package "vicara" {
+            abstract class BaseVicara {
+                + refiner: BaseRefiner
+                + {abstract} forward(s_t, context=None) : Tensor
+            }
+            note bottom of BaseVicara
+              === Single-Step State Update ===
+              Performs ONE refinement step only.
+              Loop control is delegated to SamathaEngine.
+              - context: Optional Dict from Vitakka (probs, winner_id)
+                - Standard/WeightedVicara: ignores context
+                - ProbeSpecificVicara: uses context for refiner selection
+              Returns: s_{t+1} (Batch, Dim)
+            end note
+        }
+
+        package "refiners" {
+            abstract class BaseRefiner {
+                + {abstract} forward(s) : Tensor
+            }
+        }
+
+        package "sati" {
+            abstract class BaseSati {
+                + {abstract} forward(current_state, santana) : Tuple
+            }
+        }
+
+        package "vipassana" {
+            abstract class BaseVipassana {
+                + {abstract} forward(s_star, santana, probes, recon_error) : VipassanaOutput
+            }
+            class StandardVipassana {
+                + trajectory_gru: GRU
+                + metric_projector: MLP
+                + trust_head: MLP
+                + conformity_head: MLP
+                + confidence_head: MLP
+                --
+                + _encode_trajectory(santana) : Tensor
+                + _compile_metrics(s_star, santana, probes, recon_error) : Tensor
+            }
+            class VipassanaOutput {
+                + v_ctx: Tensor
+                + trust_score: Tensor
+                + conformity_score: Tensor
+                + confidence_score: Tensor
+            }
+            note bottom of StandardVipassana
+              === Dual-Branch Architecture ===
+              Branch 1 (Dynamic): GRU encodes trajectory → dynamic_context
+              Branch 2 (Static): 8 Grounding Metrics → MLP → metrics
+              V_ctx = Concat(dynamic_context, metrics)
+
+              === Triple Score System ===
+              - trust_score: metrics only (static, OOD detection)
+              - conformity_score: dynamic_context only (GRU gradient path)
+              - confidence_score: both (comprehensive)
+
+              === 8 Grounding Metrics ===
+              1. velocity: ||S_T - S_{T-1}||
+              2. avg_energy: mean trajectory energy (masked)
+              3. convergence_steps: t / max_steps
+              4. min_dist: S* to nearest probe
+              5. entropy: probe distribution entropy
+              6. s0_min_dist: S0 to nearest probe (Grounding)
+              7. drift_magnitude: ||S* - S0|| (Grounding)
+              8. recon_error: reconstruction MSE (Grounding)
+            end note
+        }
+
+        package "decoders" {
+            abstract class BaseDecoder {
+                + {abstract} forward(x) : Tensor
+            }
+            class ConditionalDecoder
+            class SimpleReconstructionDecoder
+            class SimpleAuxHead
+        }
+        note bottom of ConditionalDecoder
+          === Conditional Task Decoder ===
+          Used in Stage 3 & Inference for final task prediction.
+          Input: Concatenation of S* (Converged State) and V_ctx (Introspection Context).
+          Output: Final Task Prediction (Y).
+        end note
+        note bottom of SimpleReconstructionDecoder
+          === Reconstruction Head ===
+          Used in Stage 0 (for Adapter) and Stage 1 (for Samatha, Optional).
+          Input: z (from Adapter in Stage 0) or S* (from Samatha in Stage 1).
+          Output: Reconstructed Input (X_hat).
+          Purely for stability/regularization during training. NOT used for inference.
+        end note
+        note bottom of SimpleAuxHead
+          === Auxiliary Head ===
+          Used only in Stage 1 (if use_label_guidance=True).
+          Input: S* (from Samatha).
+          Output: Label Prediction (y_aux).
+          Guides latent space structure using labels.
+        end note
+
+        package "objectives" {
+            abstract class BaseObjective {
+                + {abstract} compute_loss(args) : Tuple
+            }
+            class AutoencoderObjective
+            class UnsupervisedObjective
+            class VipassanaObjective
+            class SupervisedClassificationObjective
+        }
+    }
+
+    package "train" {
+        class SatipatthanaTrainer {
+            + system: SatipatthanaSystem
+            + config: TrainerConfig
+            + current_stage: int
+            --
+            + train_stage_0(dataloader) : Dict
+            + train_stage_1(dataloader, labels=None) : Dict
+            + train_stage_2(dataloader) : Dict
+            + train_stage_3(dataloader) : Dict
+            + _freeze_for_stage(stage: int) : void
+            + _generate_mismatch(s_stars, santanas, labels=None) : Tuple
+            + _generate_drunk_samples(x) : Tuple
+        }
+        note right of SatipatthanaTrainer
+          === Training Orchestrator ===
+          Manages 4-stage curriculum learning.
+          Responsibilities:
+          - Freeze/Unfreeze components per stage
+          - Generate noise samples (Augmented/Drunk/Mismatch)
+          - Dispatch to appropriate Objective
+
+          Mismatch Generation:
+          - If use_label_guidance=True: Cross-label shuffle
+          - Else: Random shuffle within batch
+        end note
+
+        class TrainerConfig {
+            + stage_epochs: Dict[int, int]
+            + use_label_guidance: bool
+            + drunk_ratio: float
+            + mismatch_ratio: float
+            + augment_ratio: float
+            + void_ratio: float
+        }
+    }
+}
+
+' Relationships
+SatipatthanaSystem *-- SystemConfig
+SatipatthanaSystem *-- SantanaLog
+SatipatthanaSystem *-- SamathaEngine
+SatipatthanaSystem *-- VipassanaEngine
+SatipatthanaSystem *-- ConditionalDecoder : task_decoder
+SatipatthanaSystem *-- SimpleAuxHead : auxiliary_head
+SatipatthanaSystem *-- SimpleReconstructionDecoder : adapter_recon_head
+SatipatthanaSystem *-- SimpleReconstructionDecoder : samatha_recon_head
+
+SamathaEngine *-- SamathaConfig
+SamathaEngine o-- BaseAdapter
+SamathaEngine o-- BaseAugmenter
+SamathaEngine o-- BaseVitakka
+SamathaEngine o-- BaseVicara
+SamathaEngine o-- BaseSati
+
+VipassanaEngine *-- VipassanaConfig
+VipassanaEngine o-- BaseVipassana
+
+BaseVicara o-- BaseRefiner
+StandardVipassana --|> BaseVipassana
+StandardVipassana ..> VipassanaOutput : returns
+ConditionalDecoder --|> BaseDecoder
+SimpleReconstructionDecoder --|> BaseDecoder
+SimpleAuxHead --|> BaseDecoder
+
+AutoencoderObjective --|> BaseObjective
+UnsupervisedObjective --|> BaseObjective
+VipassanaObjective --|> BaseObjective
+SupervisedClassificationObjective --|> BaseObjective
+
+SatipatthanaTrainer o-- SatipatthanaSystem
+SatipatthanaTrainer *-- TrainerConfig
+SatipatthanaTrainer ..> BaseObjective : uses
+
+@enduml

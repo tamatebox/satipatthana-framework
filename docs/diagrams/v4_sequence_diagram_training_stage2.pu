@@ -1,0 +1,65 @@
+@startuml v4_sequence_diagram_training_stage2
+!theme plain
+hide footbox
+skinparam sequenceMessageAlign center
+
+participant "User/Trainer" as Trainer
+participant "SatipatthanaSystem" as System
+participant "SamathaEngine" as Samatha
+participant "VipassanaEngine" as Vipassana
+
+== Stage 2: Vipassana Training (Meta-Cognition) ==
+note over Trainer, Vipassana
+Goal: Learn to distinguish valid/invalid trajectories.
+Loss: Triple Score BCE (trust + conformity + confidence)
+Triple Score System:
+ - trust_score: metrics only (OOD detection, no GRU gradient)
+ - conformity_score: dynamic_context only (GRU gradient path)
+ - confidence_score: both (comprehensive assessment)
+Noise Strategies: Clean(1.0), Augmented(1-severity), Drunk(0.0), Mismatch(0.0), Void(0.0)
+end note
+
+Trainer -> System: forward(x, stage="2_vipassana_gen")
+activate System
+    note right of System: 1. Generate clean logs (Batch)
+    System -> Samatha: forward(x)
+    Samatha --> System: s_star_clean, santana_clean
+System --> Trainer: clean_data (s*, santana)
+deactivate System
+
+Trainer -> Trainer: Create Noise Data
+group Noise Generation Strategies
+    Trainer -> System: forward(x, noise_level=High) -> Augmented Santana (Target=Low)
+    Trainer -> System: forward(x, drunk_mode=True) -> Drunk Santana (Target=0.0)
+
+    alt use_label_guidance is True (Supervised)
+        Trainer -> Trainer: Create Mismatch (Hallucination)\nCross-Label Shuffle: Combine S*_A with Santana_B\nwhere Label(A) != Label(B)
+    else Unsupervised Mode
+        Trainer -> Trainer: Create Mismatch (Hallucination)\nRandom Shuffle: Combine S*_A with Santana_Random
+    end
+
+    Trainer -> System: forward(x_void) -> Void Santana (Target=0.0)
+    note right of Trainer
+        Void Path: OOD samples from VoidDataset
+        Trains Grounding Metrics (s0_min_dist, drift)
+    end note
+end
+
+Trainer -> System: forward(s_star_batch, santana_batch, stage="2_vipassana_train")
+activate System
+    System -> Vipassana: forward(s_star_batch, santana_batch)
+    activate Vipassana
+    Vipassana --> System: VipassanaOutput\n(v_ctx, trust, conformity, confidence)
+    deactivate Vipassana
+System --> Trainer: VipassanaOutput
+deactivate System
+
+Trainer -> Trainer: Compute Loss:\n Triple Score BCE:\n BCE(trust, targets) +\n BCE(conformity, targets) +\n BCE(confidence, targets)
+note right of Trainer
+  conformity_score and confidence_score
+  provide gradients to GRU trajectory encoder
+end note
+Trainer -> System: backward()
+note right of Trainer: Optimize Vipassana Only
+
+@enduml

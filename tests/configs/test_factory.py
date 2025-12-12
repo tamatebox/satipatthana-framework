@@ -1,14 +1,14 @@
 import pytest
-from samadhi.configs.enums import AdapterType, VicaraType, DecoderType
-from samadhi.configs.factory import (
+from satipatthana.configs.enums import AdapterType, VicaraType, DecoderType
+from satipatthana.configs.factory import (
     create_adapter_config,
     create_vicara_config,
     create_decoder_config,
     create_vitakka_config,
 )
-from samadhi.configs.adapters import MlpAdapterConfig, CnnAdapterConfig
-from samadhi.configs.vicara import StandardVicaraConfig, ProbeVicaraConfig
-from samadhi.configs.decoders import ReconstructionDecoderConfig, LstmDecoderConfig
+from satipatthana.configs.adapters import MlpAdapterConfig, CnnAdapterConfig
+from satipatthana.configs.vicara import StandardVicaraConfig, ProbeVicaraConfig
+from satipatthana.configs.decoders import ReconstructionDecoderConfig, LstmDecoderConfig
 
 
 def test_create_adapter_config_default():

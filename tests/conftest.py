@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 class GlobalMockConfig:
     def __init__(self):
         self.input_dim = 10
-        self.dim = 10  # SamadhiModel uses 'dim'
+        self.dim = 10  # SatipatthanaSystem uses 'dim'
         self.hidden_dim = 20
         self.latent_dim = 5
         self.num_layers = 1

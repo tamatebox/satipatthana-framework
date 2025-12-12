@@ -1,6 +1,6 @@
 import pytest
 import torch
-from samadhi.components.adapters.vision import CnnAdapter
+from satipatthana.components.adapters.vision import CnnAdapter
 
 
 @pytest.fixture

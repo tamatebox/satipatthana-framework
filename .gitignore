@@ -9,4 +9,39 @@ wheels/
 # Virtual environments
 .venv
 
-data
+# Data (root level only, not satipatthana/data/)
+/data/
+notebooks/data/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Model outputs
+*.pt
+*.pth
+*.ckpt
+checkpoints/
+outputs/
+test_output/
+
+# Logs
+*.log
+logs/
+wandb/
+runs/
+
+# OS
+.DS_Store
+Thumbs.db

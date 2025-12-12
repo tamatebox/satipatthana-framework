@@ -1,0 +1,79 @@
+@startuml v4_sequence_diagram_inference
+!theme plain
+hide footbox
+skinparam sequenceMessageAlign center
+
+actor User
+participant "System\n(SatipatthanaSystem)" as System
+participant "Samatha\n(SamathaEngine)" as Samatha
+participant "Adapter\n(BaseAdapter)" as Adapter
+participant "Vitakka\n(BaseVitakka)" as Vitakka
+participant "Vicara\n(BaseVicara)" as Vicara
+participant "Sati\n(BaseSati)" as Sati
+participant "Vipassana\n(VipassanaEngine)" as Vipassana
+participant "Decoder\n(ConditionalDecoder)" as Decoder
+
+== Inference Phase ==
+
+User -> System: forward(x)
+activate System
+
+    note right of System: Phase 1: Convergence (Samatha)
+    System -> Samatha: forward(x, noise_level=0.0, drunk=False)
+    activate Samatha
+    
+        Samatha -> Adapter: forward(x)
+        activate Adapter
+        Adapter --> Samatha: z (Latent)
+        deactivate Adapter
+        
+        Samatha -> Vitakka: forward(z)
+        activate Vitakka
+        Vitakka --> Samatha: s_0 (Initial State)
+        deactivate Vitakka
+        
+        Samatha -> Samatha: santana.add(s_0)  // Initial Log
+        
+        note right of Samatha: Thinking Loop
+        loop until Sati says stop or max_steps
+            Samatha -> Vicara: forward(s_t)
+            activate Vicara
+            Vicara --> Samatha: s_{t+1} (Next State)
+            deactivate Vicara
+            
+            Samatha -> Samatha: santana.add(s_{t+1})
+            
+            Samatha -> Sati: forward(s_{t+1}, santana)
+            activate Sati
+            Sati --> Samatha: should_stop, info
+            deactivate Sati
+            
+            break if should_stop is True
+            end
+        end
+        
+    Samatha --> System: s_star (Converged), santana (Log)
+    deactivate Samatha
+
+    note right of System: Phase 2: Introspection (Vipassana)
+    System -> Vipassana: forward(s_star, santana)
+    activate Vipassana
+    Vipassana --> System: v_ctx (Context), trust_score
+    deactivate Vipassana
+
+    note right of System: Phase 3: Expression (Decoder)
+    System -> Decoder: forward(s_star, v_ctx)
+    activate Decoder
+    Decoder --> System: y_pred (Output)
+    deactivate Decoder
+
+    alt use_label_guidance is True (Supervised)
+        note right of System: y_pred is Class Probability / Value
+    else Unsupervised Mode
+        note right of System: y_pred is Latent Target / Reconstruction
+    end
+
+System --> User: y_pred, trust_score
+deactivate System
+
+@enduml

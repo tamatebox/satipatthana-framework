@@ -1,0 +1,45 @@
+@startuml v4_sequence_diagram_training_stage0
+!theme plain
+hide footbox
+skinparam sequenceMessageAlign center
+
+participant "Trainer\n(SatipatthanaTrainer)" as Trainer
+participant "System\n(SatipatthanaSystem)" as System
+participant "Adapter" as Adapter
+participant "ReconHead\n(ReconHead_Adapter)" as ReconHead
+participant "Loss\n(Reconstruction)" as Loss
+
+== Stage 0: Adapter Pre-training (Optional but Recommended) ==
+note over Trainer, Loss
+    Goal: Learn robust input representation (z) via Autoencoding.
+    Benefit: Improves initial stability for Samatha dynamics in Stage 1.
+    Train: Adapter, ReconHead | Freeze: All Samatha components, Vipassana, TaskDecoder
+    Loss: Reconstruction Loss (e.g., MSE)
+    *ReconHead here is strictly for Adapter stabilization and is discarded for inference.
+end note
+
+Trainer -> System: forward_stage0(x_batch)
+activate System
+    note right of System: Only Adapter and ReconHead_Adapter are active/trainable
+
+    System -> Adapter: forward(x_batch)
+    activate Adapter
+    Adapter --> System: z_latent
+    deactivate Adapter
+
+    System -> ReconHead: forward(z_latent)
+    activate ReconHead
+    ReconHead --> System: x_reconstructed
+    deactivate ReconHead
+
+deactivate System
+
+Trainer -> Loss: compute_loss(x_batch, x_reconstructed)
+activate Loss
+Loss --> Trainer: loss_value
+deactivate Loss
+
+Trainer -> Adapter: backward() & update()
+Trainer -> ReconHead: backward() & update()
+
+@enduml
