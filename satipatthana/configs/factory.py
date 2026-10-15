@@ -250,22 +250,43 @@ def _build_internal_config(config: "SatipatthanaConfig") -> SystemConfig:
         output_dim=config.output_dim,
     )
 
+    # Determine reconstruction decoder type
+    # "auto" -> use CNN for CNN adapter, MLP otherwise
+    recon_decoder_type = config.recon_decoder
+    if recon_decoder_type == "auto":
+        if config.adapter == "cnn" or isinstance(config.adapter, CnnAdapterConfig):
+            recon_decoder_type = "cnn"
+        else:
+            recon_decoder_type = "mlp"
+
     # Build reconstruction head configs
-    # Determine input_dim for reconstruction
-    if config.adapter == "cnn":
-        recon_input_dim = config.channels * config.img_size * config.img_size
+    if recon_decoder_type == "cnn":
+        # Use CnnDecoder for image reconstruction
+        adapter_recon_cfg = CnnDecoderConfig(
+            dim=dim,
+            channels=config.channels,
+            img_size=config.img_size,
+        )
+        samatha_recon_cfg = CnnDecoderConfig(
+            dim=dim,
+            channels=config.channels,
+            img_size=config.img_size,
+        )
     else:
-        recon_input_dim = config.input_dim
+        # Use MLP ReconstructionDecoder
+        if config.adapter == "cnn" or isinstance(config.adapter, CnnAdapterConfig):
+            recon_input_dim = config.channels * config.img_size * config.img_size
+        else:
+            recon_input_dim = config.input_dim
 
-    adapter_recon_cfg = ReconstructionDecoderConfig(
-        dim=dim,
-        input_dim=recon_input_dim,
-    )
-
-    samatha_recon_cfg = ReconstructionDecoderConfig(
-        dim=dim,
-        input_dim=recon_input_dim,
-    )
+        adapter_recon_cfg = ReconstructionDecoderConfig(
+            dim=dim,
+            input_dim=recon_input_dim,
+        )
+        samatha_recon_cfg = ReconstructionDecoderConfig(
+            dim=dim,
+            input_dim=recon_input_dim,
+        )
 
     # Build auxiliary head config (for Stage 1 guidance)
     aux_head_cfg = SimpleAuxHeadConfig(
@@ -323,6 +344,7 @@ def _build_system(
     from satipatthana.components.vipassana.standard import StandardVipassana
     from satipatthana.components.decoders.conditional import ConditionalDecoder
     from satipatthana.components.decoders.reconstruction import ReconstructionDecoder
+    from satipatthana.components.decoders.vision import CnnDecoder
     from satipatthana.components.decoders.auxiliary import SimpleAuxHead
 
     system_config, aux_head_cfg = internal_config_tuple
@@ -396,8 +418,21 @@ def _build_system(
 
     # Build Decoders
     task_decoder = ConditionalDecoder(system_config.task_decoder)
-    adapter_recon_head = ReconstructionDecoder(system_config.adapter_recon_head)
-    samatha_recon_head = ReconstructionDecoder(system_config.samatha_recon_head)
+
+    # Build reconstruction heads (CnnDecoder or ReconstructionDecoder)
+    adapter_recon_cfg = system_config.adapter_recon_head
+    samatha_recon_cfg = system_config.samatha_recon_head
+
+    if isinstance(adapter_recon_cfg, CnnDecoderConfig):
+        adapter_recon_head = CnnDecoder(adapter_recon_cfg)
+    else:
+        adapter_recon_head = ReconstructionDecoder(adapter_recon_cfg)
+
+    if isinstance(samatha_recon_cfg, CnnDecoderConfig):
+        samatha_recon_head = CnnDecoder(samatha_recon_cfg)
+    else:
+        samatha_recon_head = ReconstructionDecoder(samatha_recon_cfg)
+
     auxiliary_head = SimpleAuxHead(aux_head_cfg)
 
     # Build System

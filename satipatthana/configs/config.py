@@ -76,6 +76,7 @@ AugmenterSpec = Union[
     Literal["identity", "gaussian"],
     BaseAugmenterConfig,
 ]
+ReconDecoderSpec = Literal["auto", "mlp", "cnn"]
 
 
 @dataclass
@@ -98,6 +99,8 @@ class SatipatthanaConfig:
         sati: Sati type or custom config
         vipassana: Vipassana type or custom config
         augmenter: Augmenter type or custom config
+        recon_decoder: Reconstruction decoder type ("auto", "mlp", "cnn")
+                      "auto" uses CNN for CNN adapter, MLP otherwise
 
         adapter_hidden_dim: Hidden dimension for MLP/LSTM adapter
         img_size: Image size (required for CNN adapter)
@@ -118,7 +121,7 @@ class SatipatthanaConfig:
         >>> config = SatipatthanaConfig(input_dim=128, output_dim=10)
         >>> system = config.build()
 
-        >>> # With CNN adapter
+        >>> # With CNN adapter (auto uses CnnDecoder for reconstruction)
         >>> config = SatipatthanaConfig(
         ...     input_dim=784,  # Not used for CNN, but required
         ...     output_dim=10,
@@ -142,6 +145,7 @@ class SatipatthanaConfig:
     sati: SatiSpec = "threshold"
     vipassana: VipassanaSpec = "standard"
     augmenter: AugmenterSpec = "identity"
+    recon_decoder: ReconDecoderSpec = "auto"
 
     # === Adapter-specific (used when adapter is string) ===
     adapter_hidden_dim: int = 256
@@ -307,4 +311,5 @@ __all__ = [
     "SatiSpec",
     "VipassanaSpec",
     "AugmenterSpec",
+    "ReconDecoderSpec",
 ]
